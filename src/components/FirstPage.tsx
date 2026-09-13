@@ -1,4 +1,5 @@
 import { JSX } from 'react';
+import { router } from 'expo-router';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,7 +7,6 @@ export function FirstPage(): JSX.Element {
   return (
     <SafeAreaView>
       <View style={styles.container}>
-
         <Text style={styles.textTitle}>CleanMyStreetZA</Text>
       </View>
 
@@ -40,7 +40,7 @@ export function FirstPage(): JSX.Element {
         </View>
 
         <View style={{width: '100%', marginTop: 20, alignItems: 'center'}}>
-          <TouchableOpacity style={styles.button3} onPress={() => console.log('Log In pressed')}>
+          <TouchableOpacity style={styles.button3} onPress={() => router.push('/home')}>
             <Text style={styles.buttonText1}>Log In</Text>
           </TouchableOpacity>
         <Text style={{marginTop: 10, marginBottom: 10, fontWeight: 'bold'}}>OR</Text>
