@@ -1,8 +1,10 @@
+import { useRouter } from 'expo-router';
 import { JSX } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Home(): JSX.Element {
+  const router=useRouter();
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
@@ -20,7 +22,7 @@ export default function Home(): JSX.Element {
           </View>
 
           <View style={styles.actionRow}>
-            <Pressable style={[styles.actionButton, styles.primaryButton]} onPress={() => {}}>
+            <Pressable style={[styles.actionButton, styles.primaryButton]} onPress={() => {router.push('/reportdumping')}}>
               <Text style={styles.primaryButtonText}>Report a Dumping Site</Text>
             </Pressable>
             <Pressable style={[styles.actionButton, styles.secondaryButton]} onPress={() => {}}>
