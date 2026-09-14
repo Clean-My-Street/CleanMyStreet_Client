@@ -1,9 +1,11 @@
-import { JSX } from 'react';
 import { router } from 'expo-router';
+import { JSX, useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export function FirstPage(): JSX.Element {
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+
   return (
     <SafeAreaView>
       <View style={styles.container}>
@@ -17,31 +19,52 @@ export function FirstPage(): JSX.Element {
           in your community.</Text>
       </View>
       <View style={styles.container3}>
-        <Text style={styles.textWelcome}>Welcome Back</Text>
-        <Text style={{fontFamily: 'Red Hat Display', fontSize: 16}}>Log In or Create an Account</Text>
+        <Text style={styles.textWelcome}>{isCreatingAccount ? 'Create Your Account' : 'Welcome Back'}</Text>
+        <Text style={styles.formIntro}>
+          {isCreatingAccount ? 'Join your community and help restore local spaces' : 'Log In or Create an Account'}
+        </Text>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button1} onPress={() => console.log('Log In pressed')}>
-            <Text style={styles.buttonText1}>Log In</Text>
+          <TouchableOpacity
+            style={[styles.button1, !isCreatingAccount ? styles.selectedButton : styles.inactiveLoginButton]}
+            onPress={() => setIsCreatingAccount(false)}
+          >
+            <Text style={[styles.buttonText1, isCreatingAccount && styles.inactiveLoginText]}>Log In</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.button2} onPress={() => console.log('Create Account pressed')}>
-            <Text style={styles.buttonText2}>Create Account</Text>
+          <TouchableOpacity
+            style={[styles.button2, isCreatingAccount && styles.selectedCreateButton]}
+            onPress={() => setIsCreatingAccount(true)}
+          >
+            <Text style={[styles.buttonText2, isCreatingAccount && styles.activeButtonText]}>Create Account</Text>
           </TouchableOpacity>
         </View>
 
         <View style={ styles.containerInput}>
+          {isCreatingAccount && (
+            <>
+              <Text style={styles.inputText}>Full Name:</Text>
+              <TextInput style={styles.inputStyles} placeholder="Eric Ndlovu" />
+            </>
+          )}
+
           <Text style={styles.inputText}>Email or Phone Number:</Text>
-          <TextInput style={styles.inputStyles} 
-          placeholder="eric@example.com/083 000 0000" />
+          <TextInput style={styles.inputStyles} placeholder="eric@example.com / 083 000 0000" />
 
           <Text style={styles.inputText}>Password:</Text>
           <TextInput style={styles.inputStyles} placeholder="•••••••••••••" secureTextEntry />
+
+          {isCreatingAccount && (
+            <>
+              <Text style={styles.inputText}>Confirm Password:</Text>
+              <TextInput style={styles.inputStyles} placeholder="Repeat your password" secureTextEntry />
+            </>
+          )}
         </View>
 
         <View style={{width: '100%', marginTop: 20, alignItems: 'center'}}>
           <TouchableOpacity style={styles.button3} onPress={() => router.push('/home')}>
-            <Text style={styles.buttonText1}>Log In</Text>
+            <Text style={styles.buttonText1}>{isCreatingAccount ? 'Create Account' : 'Log In'}</Text>
           </TouchableOpacity>
         <Text style={{marginTop: 10, marginBottom: 10, fontWeight: 'bold'}}>OR</Text>
         <Image source={require('../../assets/expo.icon/Assets/search.png')} style={{width: 30, height: 30}} />
@@ -59,6 +82,11 @@ const styles = StyleSheet.create({
     color: '#17201A',
     paddingTop: 20,
     paddingBottom: 10,
+  },
+  formIntro: {
+    fontFamily: 'Red Hat Display',
+    fontSize: 16,
+    color: '#17201A',
   },
   container: {
     width: '100%',
@@ -143,6 +171,13 @@ const styles = StyleSheet.create({
     marginRight: 10,
     alignItems: 'center',
   },
+  selectedButton: {
+    borderWidth: 1,
+    borderColor: '#1F7A3F',
+  },
+  inactiveLoginButton: {
+    backgroundColor: '#FFFFFF',
+  },
   button2: {
     width: '50%',
     backgroundColor: '#f7f7f7',
@@ -150,6 +185,9 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     alignItems: 'center',
+  },
+  selectedCreateButton: {
+    backgroundColor: '#1F7A3F',
   },
   button3: {
     width: '50%',
@@ -163,9 +201,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  inactiveLoginText: {
+    color: '#1F7A3F',
+  },
   buttonText2: {
     color: '#1F7A3F',
     fontSize: 16,
     fontWeight: 'bold',
-  }
+  },
+  activeButtonText: {
+    color: '#FFFFFF',
+  },
 });
