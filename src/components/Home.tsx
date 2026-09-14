@@ -1,3 +1,6 @@
+import { faBell, faHome, faMap, faUser } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
+import { router } from 'expo-router';
 import { JSX } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,6 +45,7 @@ export default function Home(): JSX.Element {
           </View>
 
           <Text style={styles.sectionTitle}>Active Campaigns</Text>
+
           <View style={styles.sectionCard}>
             <Text style={styles.campaignTitle}>Musgrave Rd Cleanup</Text>
             <View style={styles.progressTrack}>
@@ -52,7 +56,7 @@ export default function Home(): JSX.Element {
               <Text style={styles.metaText}>65%</Text>
             </View>
             <View style={styles.campaignActions}>
-              <Pressable style={[styles.campaignButton, styles.primaryButton]} onPress={() => {}}>
+              <Pressable style={[styles.campaignButton, styles.primaryButton]} onPress={() => {router.push('/previewcampaign')}}>
                 <Text style={styles.primaryButtonText}>Contribute</Text>
               </Pressable>
               <Pressable style={[styles.campaignButton, styles.shareButton]} onPress={() => {}}>
@@ -101,13 +105,21 @@ export default function Home(): JSX.Element {
         </ScrollView>
 
         <View style={styles.bottomNav}>
-          <NavItem icon="HOME" label="Home" active />
-          <NavItem icon="SITES" label="Sites" />
+            <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
+                <FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
+            </Pressable>
+            <Pressable>
+                <FontAwesomeIcon icon={faMap} size={20} color="#124A2A"/>
+            </Pressable>
           <Pressable style={styles.addButton} onPress={() => {}}>
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
-          <NavItem icon="ALERT" label="Alerts" />
-          <NavItem icon="YOU" label="Profile" />
+          <Pressable>
+            <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
+          </Pressable>
+          <Pressable>
+            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
