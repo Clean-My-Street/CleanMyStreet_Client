@@ -1,13 +1,11 @@
-import { faBell, faHome, faMap, faUser } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { useRouter } from 'expo-router';
+import { faBell, faHome, faMap, faUser } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
+import { router } from 'expo-router';
 import { JSX } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-
 export default function Home(): JSX.Element {
-  const router=useRouter();
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
@@ -25,22 +23,25 @@ export default function Home(): JSX.Element {
           </View>
 
           <View style={styles.actionRow}>
-            <Pressable style={[styles.actionButton, styles.primaryButton]} onPress={() => {router.push('/reportdumping')}}>
+            <Pressable style={[styles.actionButton, styles.primaryButton]} onPress={() => router.push('/(tabs)/report')}>
               <Text style={styles.primaryButtonText}>Report a Dumping Site</Text>
             </Pressable>
-            <Pressable style={[styles.actionButton, styles.secondaryButton]} onPress={() => {}}>
+            <Pressable style={[styles.actionButton, styles.secondaryButton]} onPress={() => router.push('/map')}>
               <Text style={styles.secondaryButtonText}>View Map &amp; List of Sites</Text>
             </Pressable>
           </View>
 
           <Text style={styles.sectionTitle}>Nearby Dumping Sites</Text>
           <View style={styles.sectionCard}>
-            <View style={styles.artworkPlaceholder}>
-              <View style={styles.artworkPin}>
-                <Text style={styles.artworkPinText}>!</Text>
+            <View style={{ position: 'relative', marginBottom: 8, height: 128, borderRadius: 6, overflow: 'hidden' }}>
+              <Image 
+                source={require('../../assets/dumping_site.png')} 
+                style={{ width: '100%', height: '100%' }} 
+                resizeMode="cover"
+              />
+              <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Before</Text>
               </View>
-              <Text style={styles.artworkTitle}>Site photo artwork</Text>
-              <Text style={styles.artworkCaption}>Dumping site image placeholder</Text>
             </View>
             <SiteRow name="Musgrave Rd" distance="0.8 km" />
             <SiteRow name="Sydenham Rd" distance="1.4 km" />
@@ -106,23 +107,7 @@ export default function Home(): JSX.Element {
           </View>
         </ScrollView>
 
-        <View style={styles.bottomNav}>
-            <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
-                <FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
-            </Pressable>
-            <Pressable>
-                <FontAwesomeIcon icon={faMap} size={20} color="#124A2A"/>
-            </Pressable>
-          <Pressable style={styles.addButton} onPress={() => {}}>
-            <Text style={styles.addButtonText}>+</Text>
-          </Pressable>
-          <Pressable>
-            <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
-          </Pressable>
-          <Pressable>
-            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
-          </Pressable>
-        </View>
+
       </View>
     </SafeAreaView>
   );
@@ -164,7 +149,7 @@ function NavItem({ icon, label, active = false }: { icon: string; label: string;
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  content: { padding: 16, paddingBottom: 24 },
+  content: { padding: 16, paddingTop: 50, paddingBottom: 24 },
   header: { height: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   backIcon: { color: '#17201A', fontSize: 32, lineHeight: 32, marginRight: 8 },
   logoMark: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#36B86B', alignItems: 'center', justifyContent: 'center' },
