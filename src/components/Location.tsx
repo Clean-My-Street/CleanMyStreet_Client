@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { JSX, useState } from 'react';
 import {
     Pressable,
@@ -9,7 +10,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+
+
 export default function Location(): JSX.Element {
+  const router=useRouter();
   const [wasteType, setWasteType] = useState('Illegal Dumping');
 
   return (
@@ -109,7 +113,7 @@ export default function Location(): JSX.Element {
                 styles.wasteOption,
                 wasteType === 'Illegal Dumping' && styles.selectedWaste,
               ]}
-              onPress={() => setWasteType('Illegal Dumping')}
+              onPress={() => router.push('/previewcampaign')}
             >
               <Text
                 style={[
