@@ -1,4 +1,4 @@
-import { FirstPage } from '../components/FirstPage';
+import { FirstPage } from '../screens/FirstPage';
 
 export default function Index() {
   return <FirstPage />;

@@ -119,7 +119,7 @@ export default function Home(): JSX.Element {
           <Pressable>
             <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
           </Pressable>
-          <Pressable>
+          <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
             <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
           </Pressable>
         </View>

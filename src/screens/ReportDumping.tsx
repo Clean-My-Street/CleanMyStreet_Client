@@ -1,18 +1,20 @@
+import { faBell, faHome, faMap, faUser } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { JSX, useState } from 'react';
 import {
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ReportDumping(): JSX.Element {
-  const router=useRouter();
+  const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraOpen, setCameraOpen] = useState(false);
 
@@ -120,64 +122,25 @@ export default function ReportDumping(): JSX.Element {
 
         {/* BOTTOM NAVIGATION */}
         <View style={styles.bottomNav}>
-
-          <NavItem
-            icon="HOME"
-            label="Home"
-          />
-
-          <NavItem
-            icon="SITES"
-            label="Sites"
-          />
-
-          <Pressable
-            style={styles.addButton}
-            onPress={() => {}}
-          >
-            <Text style={styles.addButtonText}>
-              +
-            </Text>
+          <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
+            <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
           </Pressable>
-
-          <NavItem
-            icon="ALERT"
-            label="Alerts"
-          />
-
-          <NavItem
-            icon="YOU"
-            label="Profile"
-          />
-
+          <Pressable>
+            <FontAwesomeIcon icon={faMap} size={20} color="#124A2A" />
+          </Pressable>
+          <Pressable style={styles.addButton} onPress={() => { }}>
+            <Text style={styles.addButtonText}>+</Text>
+          </Pressable>
+          <Pressable>
+            <FontAwesomeIcon icon={faBell} size={20} color="#124A2A" />
+          </Pressable>
+          <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
+            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
+          </Pressable>
         </View>
 
       </View>
     </SafeAreaView>
-  );
-}
-
-/* NAVIGATION ITEM */
-function NavItem({
-  icon,
-  label,
-}: {
-  icon: string;
-  label: string;
-}): JSX.Element {
-  return (
-    <Pressable
-      style={styles.navItem}
-      onPress={() => {}}
-    >
-      <Text style={styles.navIcon}>
-        {icon}
-      </Text>
-
-      <Text style={styles.navLabel}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 

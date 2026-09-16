@@ -1,4 +1,4 @@
-import ReportDumping from '../components/ReportDumping';
+import ReportDumping from '../screens/ReportDumping';
 
 export default function ReportDumpingRoute() {
   return <ReportDumping />;

@@ -82,7 +82,7 @@ export default function ViewCampaign(): JSX.Element {
 					<Pressable accessibilityLabel="View alerts">
 						<FontAwesomeIcon icon={faBell} size={20} color="#124A2A" />
 					</Pressable>
-					<Pressable accessibilityLabel="View profile">
+                    <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
 						<FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
 					</Pressable>
 				</View>
