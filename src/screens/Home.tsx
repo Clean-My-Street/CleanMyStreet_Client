@@ -2,7 +2,7 @@ import { faBell, faHome, faMap, faUser } from '@fortawesome/free-solid-svg-icons
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
 import { JSX } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -15,7 +15,7 @@ export default function Home(): JSX.Element {
           <View style={styles.header}>
             <Text style={styles.backIcon}>‹</Text>
             <View style={styles.logoMark}>
-              <Text style={styles.logoText}>CM</Text>
+             <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
             </View>
             <Text style={styles.brandName}>CleanMyStreetZA</Text>
           </View>
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   header: { height: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   backIcon: { color: '#17201A', fontSize: 32, lineHeight: 32, marginRight: 8 },
   logoMark: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#36B86B', alignItems: 'center', justifyContent: 'center' },
-  logoText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  logo: { width: 50, height: 50, resizeMode: 'contain' },
   brandName: { color: '#17201A', fontSize: 13, fontWeight: '600', marginLeft: 7 },
   welcomeCard: { backgroundColor: '#F1F1F1', borderRadius: 8, padding: 16, marginBottom: 12 },
   welcomeText: { color: '#17201A', fontSize: 13 },

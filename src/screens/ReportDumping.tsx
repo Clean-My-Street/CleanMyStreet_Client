@@ -5,11 +5,12 @@ import { useRouter } from 'expo-router';
 import { JSX, useState } from 'react';
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -48,7 +49,7 @@ export default function ReportDumping(): JSX.Element {
             <Text style={styles.backIcon}>‹</Text>
 
             <View style={styles.logoMark}>
-              <Text style={styles.logoText}>CM</Text>
+              <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
             </View>
 
             <Text style={styles.brandName}>
@@ -178,18 +179,17 @@ const styles = StyleSheet.create({
   },
 
   logoMark: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: 16,
     backgroundColor: '#1F7A3F',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
+  logo: { width: 52,
+    height: 52, 
+    resizeMode: 'contain' 
   },
 
   brandName: {

@@ -9,6 +9,7 @@ export function FirstPage(): JSX.Element {
   return (
     <SafeAreaView>
       <View style={styles.container}>
+        <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
         <Text style={styles.textTitle}>CleanMyStreetZA</Text>
       </View>
 
@@ -76,6 +77,10 @@ export function FirstPage(): JSX.Element {
 }
 
 const styles = StyleSheet.create({
+  logo: {
+    width: 50,
+    height: 50,
+  },
   textWelcome: {
     fontSize: 30,
     fontFamily: 'Red Hat Display',
@@ -89,15 +94,16 @@ const styles = StyleSheet.create({
     color: '#17201A',
   },
   container: {
+    flexDirection: 'row',
     width: '100%',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     fontSize: 30,
     fontWeight: 'bold',
     paddingTop: 5,
     paddingBottom: 5,
     paddingRight: 50,
-    paddingLeft: 50,
+    paddingLeft: 10,
   },
   container2: {
 
