@@ -131,7 +131,7 @@ export default function Location(): JSX.Element {
           {/* SUBMIT BUTTON */}
           <Pressable
             style={styles.submitButton}
-            onPress={() => { }}
+            onPress={() => router.push('/sites')}
           >
             <Text style={styles.submitButtonText}>
               Submit Report
