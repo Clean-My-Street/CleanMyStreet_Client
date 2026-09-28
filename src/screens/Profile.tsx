@@ -110,22 +110,22 @@ export default function Profile(): JSX.Element {
             onPress={() => router.push("/home")}
             accessibilityLabel="Go to Home"
           >
-            <FontAwesomeIcon icon={faHome} size={19} color="#68706A" />
+            <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
           </Pressable>
           <Pressable accessibilityLabel="View sites">
-            <FontAwesomeIcon icon={faMap} size={19} color="#68706A" />
+            <FontAwesomeIcon icon={faMap} size={20} color="#124A2A" />
           </Pressable>
           <Pressable
             style={styles.addButton}
             accessibilityLabel="Create report"
           >
-            <FontAwesomeIcon icon={faPlus} size={20} color="#17201A" />
+            <Text style={styles.addButtonText}>+</Text>
           </Pressable>
           <Pressable accessibilityLabel="View alerts">
-            <FontAwesomeIcon icon={faBell} size={19} color="#68706A" />
+            <FontAwesomeIcon icon={faBell} size={20} color="#124A2A" />
           </Pressable>
           <Pressable accessibilityLabel="View profile">
-            <FontAwesomeIcon icon={faUser} size={19} color="#1F9A55" />
+            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
           </Pressable>
         </View>
       </View>
@@ -262,5 +262,11 @@ const styles = StyleSheet.create({
     borderColor: "#68706A",
     alignItems: "center",
     justifyContent: "center",
+  },
+  addButtonText: {
+    color: "#17201A",
+    fontSize: 28,
+    fontWeight: "300",
+    lineHeight: 30,
   },
 });
