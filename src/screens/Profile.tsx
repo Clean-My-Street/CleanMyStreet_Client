@@ -1,16 +1,16 @@
 import {
-    faArrowLeft,
-    faBell,
-    faBookmark,
-    faClock,
-    faCreditCard,
-    faGear,
-    faHome,
-    faMap,
-    faPlus,
-    faRightFromBracket,
-    faShieldHalved,
-    faUser,
+	faArrowLeft,
+	faBell,
+	faBookmark,
+	faClock,
+	faCreditCard,
+	faGear,
+	faHome,
+	faMap,
+	faPlus,
+	faRightFromBracket,
+	faShieldHalved,
+	faUser,
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
@@ -52,9 +52,10 @@ export default function Profile(): JSX.Element {
 							<Text style={styles.profileName}>Mikasi Inc</Text>
 							<Text style={styles.profileEmail}>mikasi@gmail.com</Text>
 						</View>
-						<Pressable style={styles.editButton} onPress={() => {}} accessibilityLabel="Edit profile">
+						<Pressable style={styles.editButton} onPress={() => router.push('/editprofile')} accessibilityLabel="Edit profile">
 							<Text style={styles.editButtonText}>Edit Profile</Text>
 						</Pressable>
+
 					</View>
 
 					<View style={styles.verifiedBadge}>
