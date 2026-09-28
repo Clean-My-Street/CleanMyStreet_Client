@@ -116,7 +116,7 @@ export default function Home(): JSX.Element {
           <Pressable style={styles.addButton} onPress={() => {}}>
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
-          <Pressable>
+          <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">
             <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
           </Pressable>
           <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
