@@ -232,16 +232,16 @@ const handleAddPhoto = async () => {
           >
             <FontAwesomeIcon
               icon={faHome}
-              size={19}
-              color="#68706A"
+              size={20}
+              color="#124A2A"
             />
           </Pressable>
 
           <Pressable accessibilityLabel="View sites">
             <FontAwesomeIcon
               icon={faMap}
-              size={19}
-              color="#68706A"
+              size={20}
+              color="#124A2A"
             />
           </Pressable>
 
@@ -249,18 +249,14 @@ const handleAddPhoto = async () => {
             style={styles.addButton}
             accessibilityLabel="Create report"
           >
-            <FontAwesomeIcon
-              icon={faPlus}
-              size={20}
-              color="#17201A"
-            />
+            <Text style={styles.addButtonText}>+</Text>
           </Pressable>
 
           <Pressable accessibilityLabel="View alerts">
             <FontAwesomeIcon
               icon={faBell}
-              size={19}
-              color="#68706A"
+              size={20}
+              color="#124A2A"
             />
           </Pressable>
 
@@ -270,8 +266,8 @@ const handleAddPhoto = async () => {
           >
             <FontAwesomeIcon
               icon={faUser}
-              size={19}
-              color="#1F9A55"
+              size={20}
+              color="#124A2A"
             />
           </Pressable>
 
@@ -485,5 +481,12 @@ const styles = StyleSheet.create({
     borderColor: '#68706A',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  addButtonText: {
+    color: '#17201A',
+    fontSize: 28,
+    fontWeight: '300',
+    lineHeight: 30,
   },
 });

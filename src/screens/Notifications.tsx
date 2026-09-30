@@ -108,7 +108,7 @@ export default function Notifications(): JSX.Element {
 			<View style={styles.screen}>
 				<View style={styles.header}>
 					<Pressable onPress={() => router.back()} accessibilityLabel="Go back" hitSlop={8}>
-						<FontAwesomeIcon icon={faArrowLeft} size={17} color={colors.ink} />
+						<FontAwesomeIcon icon={faArrowLeft} size={17} color={colors.green} />
 					</Pressable>
 					<Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
 					<Text style={styles.headerTitle}>Notifications</Text>
@@ -175,23 +175,23 @@ export default function Notifications(): JSX.Element {
 
 				<View style={styles.bottomNav}>
 					<Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
-						<FontAwesomeIcon icon={faHome} size={20} color={colors.muted} />
+						<FontAwesomeIcon icon={faHome} size={20} color={colors.green} />
 					</Pressable>
 					<Pressable onPress={() => router.push('/location')} accessibilityLabel="View sites">
-						<FontAwesomeIcon icon={faMap} size={20} color={colors.muted} />
+						<FontAwesomeIcon icon={faMap} size={20} color={colors.green} />
 					</Pressable>
 					<Pressable
 						style={styles.addButton}
 						onPress={() => router.push('/reportdumping')}
 						accessibilityLabel="Create report"
 					>
-						<FontAwesomeIcon icon={faPlus} size={18} color={colors.ink} />
+						<Text style={styles.addButtonText}>+</Text>
 					</Pressable>
 					<Pressable accessibilityLabel="Notifications" accessibilityState={{ selected: true }}>
-						<FontAwesomeIcon icon={faBell} size={20} color={colors.teal} />
+						<FontAwesomeIcon icon={faBell} size={20} color="#124A2A" />
 					</Pressable>
 					<Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
-						<FontAwesomeIcon icon={faUser} size={20} color={colors.muted} />
+						<FontAwesomeIcon icon={faUser} size={20} color={colors.green} />
 					</Pressable>
 				</View>
 			</View>
@@ -200,13 +200,12 @@ export default function Notifications(): JSX.Element {
 }
 
 const colors = {
-	ink: '#18323B',
-	muted: '#6B7D84',
-	teal: '#168A8A',
-	tealDark: '#116D73',
-	tealPale: '#E5F4F2',
-	border: '#DCE7E7',
-	background: '#F5F8F8',
+	green: '#124A2A',
+	teal: '#36B86B',
+	tealDark: '#124A2A',
+	tealPale: '#eeeeee',
+	border: '#dce7dc',
+	background: '#f5f8f5',
 };
 
 const styles = StyleSheet.create({
@@ -223,7 +222,7 @@ const styles = StyleSheet.create({
 		gap: 12,
 	},
 	logo: { width: 26, height: 26, resizeMode: 'contain' },
-	headerTitle: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+	headerTitle: { color: colors.green, fontSize: 16, fontWeight: '700' },
 	actionsRow: {
 		minHeight: 46,
 		paddingHorizontal: 18,
@@ -246,8 +245,8 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
-	filterChipSelected: { backgroundColor: colors.ink, borderColor: colors.ink },
-	filterText: { color: colors.muted, fontSize: 11, fontWeight: '600' },
+	filterChipSelected: { backgroundColor: colors.green, borderColor: colors.green },
+	filterText: { color: colors.green, fontSize: 11, fontWeight: '600' },
 	filterTextSelected: { color: '#FFFFFF' },
 	notificationList: { paddingHorizontal: 16, paddingBottom: 18, flexGrow: 1 },
 	notificationCard: {
@@ -279,8 +278,8 @@ const styles = StyleSheet.create({
 	},
 	avatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
 	notificationCopy: { flex: 1, gap: 5 },
-	notificationTitle: { color: colors.ink, fontSize: 12, lineHeight: 17, fontWeight: '600' },
-	notificationTime: { color: colors.muted, fontSize: 10 },
+	notificationTitle: { color: colors.green, fontSize: 12, lineHeight: 17, fontWeight: '600' },
+	notificationTime: { color: colors.green, fontSize: 10 },
 	unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.teal },
 	emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60 },
 	emptyIcon: {
@@ -292,12 +291,12 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		marginBottom: 12,
 	},
-	emptyTitle: { color: colors.ink, fontSize: 15, fontWeight: '700' },
-	emptyText: { color: colors.muted, fontSize: 12, marginTop: 5, textAlign: 'center' },
+	emptyTitle: { color: colors.green, fontSize: 15, fontWeight: '700' },
+	emptyText: { color: colors.green, fontSize: 12, marginTop: 5, textAlign: 'center' },
 	bottomNav: {
 		minHeight: 68,
 		borderTopWidth: 1,
-		borderTopColor: colors.border,
+		borderTopColor: '#E8E8E8',
 		backgroundColor: '#FFFFFF',
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -309,8 +308,9 @@ const styles = StyleSheet.create({
 		height: 42,
 		borderRadius: 21,
 		borderWidth: 1,
-		borderColor: colors.border,
+		borderColor: '#68706A',
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
+	addButtonText: { color: '#17201A', fontSize: 28, fontWeight: '300', lineHeight: 30 },
 });
