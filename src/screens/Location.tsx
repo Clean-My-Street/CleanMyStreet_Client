@@ -154,7 +154,7 @@ export default function Location(): JSX.Element {
           <Pressable>
             <FontAwesomeIcon icon={faMap} size={20} color="#124A2A" />
           </Pressable>
-          <Pressable style={styles.addButton} onPress={() => { }}>
+          <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
           <Pressable>

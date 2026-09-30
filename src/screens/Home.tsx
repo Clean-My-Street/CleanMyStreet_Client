@@ -113,7 +113,7 @@ export default function Home(): JSX.Element {
             <Pressable>
                 <FontAwesomeIcon icon={faMap} size={20} color="#124A2A"/>
             </Pressable>
-          <Pressable style={styles.addButton} onPress={() => {}}>
+          <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')} accessibilityLabel="Create a report">
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
           <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">

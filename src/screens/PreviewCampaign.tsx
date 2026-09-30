@@ -55,7 +55,7 @@ export default function PreviewCampaign(): JSX.Element {
                     <Pressable>
                         <FontAwesomeIcon icon={faMap} size={20} color="#124A2A"/>
                     </Pressable>
-                  <Pressable style={styles.addButton} onPress={() => {}}>
+                  <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
                     <Text style={styles.addButtonText}>+</Text>
                   </Pressable>
                   <Pressable>
@@ -120,4 +120,4 @@ const styles = StyleSheet.create({
   navLabel: { color: '#68706A', fontSize: 9 },
   addButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: '#68706A', alignItems: 'center', justifyContent: 'center' },
   addButtonText: { color: '#17201A', fontSize: 28, fontWeight: '300', lineHeight: 30 },
-}); 
+});

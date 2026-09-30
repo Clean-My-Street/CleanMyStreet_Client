@@ -76,7 +76,7 @@ export default function ViewCampaign(): JSX.Element {
 					<Pressable accessibilityLabel="View sites">
 						<FontAwesomeIcon icon={faMap} size={20} color="#124A2A" />
 					</Pressable>
-					<Pressable style={styles.addButton} onPress={() => {}} accessibilityLabel="Create report">
+					<Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')} accessibilityLabel="Create report">
 						<Text style={styles.addButtonText}>+</Text>
 					</Pressable>
 					<Pressable accessibilityLabel="View alerts">

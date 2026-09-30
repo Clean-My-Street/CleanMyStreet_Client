@@ -13,6 +13,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 export default function ReportDumping(): JSX.Element {
   const router = useRouter();
@@ -46,7 +47,9 @@ export default function ReportDumping(): JSX.Element {
 
           {/* HEADER */}
           <View style={styles.header}>
-            <Text style={styles.backIcon}>‹</Text>
+            <Pressable onPress={() => router.back()} accessibilityLabel="Go back">
+              <Text style={styles.backIcon}>‹</Text>
+            </Pressable>
 
             <View style={styles.logoMark}>
               <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
@@ -94,11 +97,10 @@ export default function ReportDumping(): JSX.Element {
                 style={styles.cameraButton}
                 onPress={openCamera}
               >
-                <Text style={styles.cameraIcon}>⌾</Text>
-
-                <Text style={styles.cameraText}>
-                  Open Camera
-                </Text>
+                <Svg width={150} height={140} viewBox="0 0 150 140" accessibilityLabel="Camera">
+                  <Path d="M20 48c0-8 6-14 14-14h13l13-18h45l13 18h13c8 0 14 6 14 14v62c0 8-6 14-14 14H34c-8 0-14-6-14-14V48Z" fill="none" stroke="#929292" strokeWidth={1.2} />
+                  <Circle cx={75} cy={77} r={29} fill="none" stroke="#929292" strokeWidth={1.2} />
+                </Svg>
               </Pressable>
             )}
 
@@ -129,7 +131,7 @@ export default function ReportDumping(): JSX.Element {
           <Pressable>
             <FontAwesomeIcon icon={faMap} size={20} color="#124A2A" />
           </Pressable>
-          <Pressable style={styles.addButton} onPress={() => { }}>
+          <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')} accessibilityLabel="Create a report">
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
           <Pressable>
@@ -158,17 +160,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
-  content: {
-    padding: 16,
-    paddingBottom: 100,
-  },
+  content: { flexGrow: 1, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8 },
 
   /* HEADER */
   header: {
-    height: 48,
+    height: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 13,
   },
 
   backIcon: {
@@ -194,46 +193,47 @@ const styles = StyleSheet.create({
 
   brandName: {
     color: '#17201A',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 9,
+    fontSize: 9,
+    fontWeight: '500',
+    marginLeft: 6,
   },
 
   /* INTRODUCTION */
   introduction: {
-    marginBottom: 28,
+    marginBottom: 6,
   },
 
   heading: {
     color: '#17201A',
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 7,
+    fontSize: 11,
+    fontWeight: '400',
+    marginBottom: 2,
   },
 
   description: {
     color: '#68706A',
-    fontSize: 12,
+    fontSize: 8,
   },
 
   /* UPLOAD */
   uploadTitle: {
     color: '#17201A',
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 10,
+    fontSize: 9,
+    fontWeight: '500',
+    marginBottom: 5,
   },
 
   /* IMAGE BOX */
   imageBox: {
     width: '100%',
-    height: 330,
-    backgroundColor: '#E5E5E5',
-    borderRadius: 10,
+    height: undefined,
+    aspectRatio: 0.94,
+    backgroundColor: '#D9D9D9',
+    borderRadius: 7,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 34,
   },
 
   cameraButton: {
@@ -285,39 +285,37 @@ const styles = StyleSheet.create({
   /* NEXT BUTTON */
   nextButton: {
     width: '100%',
-    height: 45,
-    backgroundColor: '#1F7A3F',
-    borderRadius: 7,
+    height: 36,
+    backgroundColor: '#94D9AE',
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 18,
+    marginBottom: 9,
   },
 
   nextButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '400',
   },
 
   /* NOTIFICATION */
   notificationText: {
     color: '#68706A',
-    fontSize: 11,
-    lineHeight: 17,
-    textAlign: 'center',
-    paddingHorizontal: 15,
+    fontSize: 7,
+    lineHeight: 10,
+    textAlign: 'left',
+    paddingHorizontal: 0,
   },
 
   /* BOTTOM NAVIGATION */
   bottomNav: {
-    minHeight: 68,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
+    minHeight: 51,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
   },
 
   navItem: {

@@ -117,6 +117,7 @@ export default function Profile(): JSX.Element {
           </Pressable>
           <Pressable
             style={styles.addButton}
+            onPress={() => router.push('/reportdumping')}
             accessibilityLabel="Create report"
           >
             <Text style={styles.addButtonText}>+</Text>

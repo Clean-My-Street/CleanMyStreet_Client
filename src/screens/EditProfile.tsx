@@ -247,6 +247,7 @@ const handleAddPhoto = async () => {
 
           <Pressable
             style={styles.addButton}
+            onPress={() => router.push('/reportdumping')}
             accessibilityLabel="Create report"
           >
             <Text style={styles.addButtonText}>+</Text>
