@@ -2,7 +2,7 @@ import { faBell, faHome, faMap, faUser } from "@fortawesome/free-solid-svg-icons
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { router } from 'expo-router';
 import { JSX } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PreviewCampaign(): JSX.Element {
@@ -21,10 +21,7 @@ export default function PreviewCampaign(): JSX.Element {
           </View>
 
           <View style={styles.photoPlaceholder}>
-            <View style={styles.photoSky} />
-            <View style={styles.photoGround} />
-            <View style={styles.photoPath} />
-            <Text style={styles.photoLabel}>Campaign site photo placeholder</Text>
+            <Image source={require('../../assets/images/dumpingsite.jpeg')} style={styles.dumpingSiteImage} />
             <Pressable style={styles.viewCampaignButton} onPress={() => { router.push('/viewcampaign') }} accessibilityLabel="View Campaign">
               <Text style={styles.viewCampaignText}>View Campaign</Text>
               <Text style={styles.coordinates}>GPS: -29.8587° S, 31.0283° E</Text>
@@ -98,10 +95,7 @@ const styles = StyleSheet.create({
   logoText: { color: '#FFFFFF', fontSize: 8, fontWeight: '800' },
   headerTitle: { flex: 1, color: '#17201A', fontSize: 10, marginLeft: 7 },
   photoPlaceholder: { height: 285, backgroundColor: '#7D927C', position: 'relative', overflow: 'hidden' },
-  photoSky: { position: 'absolute', top: 0, left: 0, right: 0, height: 105, backgroundColor: '#A9B8A2' },
-  photoGround: { position: 'absolute', left: -25, right: -25, bottom: -30, height: 220, backgroundColor: '#68705C', transform: [{ rotate: '-4deg' }] },
-  photoPath: { position: 'absolute', width: 170, height: 340, right: -12, top: 80, backgroundColor: '#9A856A', transform: [{ rotate: '22deg' }] },
-  photoLabel: { position: 'absolute', left: 14, bottom: 22, color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  dumpingSiteImage: { width: '100%', height: '100%', borderRadius: 6, resizeMode: 'cover' },
   viewCampaignButton: { position: 'absolute', top: 12, right: 8, width: 112, minHeight: 42, padding: 8, borderRadius: 7, backgroundColor: '#36B86B' },
   viewCampaignText: { color: '#17201A', fontSize: 11, fontWeight: '700' },
   coordinates: { color: '#17201A', fontSize: 7, marginTop: 3 },

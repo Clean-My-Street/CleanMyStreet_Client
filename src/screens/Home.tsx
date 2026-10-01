@@ -36,11 +36,7 @@ export default function Home(): JSX.Element {
           <Text style={styles.sectionTitle}>Nearby Dumping Sites</Text>
           <View style={styles.sectionCard}>
             <View style={styles.artworkPlaceholder}>
-              <View style={styles.artworkPin}>
-                <Text style={styles.artworkPinText}>!</Text>
-              </View>
-              <Text style={styles.artworkTitle}>Site photo artwork</Text>
-              <Text style={styles.artworkCaption}>Dumping site image placeholder</Text>
+              <Image source={require('../../assets/images/dumpingsite.jpeg')} style={styles.dumpingSiteImage} />
             </View>
             <SiteRow name="Musgrave Rd" distance="0.8 km" />
             <SiteRow name="Sydenham Rd" distance="1.4 km" />
@@ -188,10 +184,7 @@ const styles = StyleSheet.create({
   advertisementTitle: { color: '#17201A', fontSize: 13, marginBottom: 4 },
   advertisementEmail: { color: '#17201A', fontSize: 11 },
   artworkPlaceholder: { height: 128, borderRadius: 6, backgroundColor: '#B7C6B9', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  artworkPin: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#36B86B', alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
-  artworkPinText: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' },
-  artworkTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  artworkCaption: { color: '#EEF5EE', fontSize: 10, marginTop: 3 },
+  dumpingSiteImage: { width: '100%', height: '100%', borderRadius: 6, resizeMode: 'cover' },
   siteRow: { backgroundColor: '#FFFFFF', borderRadius: 6, paddingVertical: 7, paddingHorizontal: 10, flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
   siteName: { color: '#17201A', fontSize: 11 },
   siteDistance: { color: '#17201A', fontSize: 11 },
