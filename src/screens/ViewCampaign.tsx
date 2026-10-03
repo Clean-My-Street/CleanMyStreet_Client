@@ -2,7 +2,7 @@ import { faArrowLeft, faBell, faCheck, faHome, faMap, faShareNodes, faUser } fro
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { router } from 'expo-router';
 import { JSX } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ViewCampaign(): JSX.Element {
@@ -14,9 +14,9 @@ export default function ViewCampaign(): JSX.Element {
 						<Pressable onPress={() => router.back()} accessibilityLabel="Go back">
 							<FontAwesomeIcon icon={faArrowLeft} size={16} color="#17201A" />
 						</Pressable>
-						<View style={styles.logoMark}>
-							<Text style={styles.logoText}>CM</Text>
-						</View>
+			<View style={styles.logoMark}>
+			  <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
+			</View>
 						<Text style={styles.headerTitle}>Musgrave Rd Cleanup Campaign</Text>
 					</View>
 
@@ -112,6 +112,10 @@ const styles = StyleSheet.create({
 	header: { height: 48, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
 	logoMark: { width: 25, height: 25, borderRadius: 13, backgroundColor: '#36B86B', alignItems: 'center', justifyContent: 'center' },
 	logoText: { color: '#FFFFFF', fontSize: 8, fontWeight: '800' },
+	 logo: { width: 52,
+    height: 52, 
+    resizeMode: 'contain' 
+  },
 	headerTitle: { flex: 1, color: '#17201A', fontSize: 11, marginLeft: 2 },
 	photoPlaceholder: { height: 245, backgroundColor: '#73816C', position: 'relative', overflow: 'hidden', justifyContent: 'flex-end', padding: 14 },
 	sky: { position: 'absolute', top: 0, left: 0, right: 0, height: 96, backgroundColor: '#B7C4B5' },

@@ -1,21 +1,19 @@
 import {
-	faArrowLeft,
-	faBell,
-	faBookmark,
-	faClock,
-	faCreditCard,
-	faGear,
-	faHome,
-	faMap,
-	faPlus,
-	faRightFromBracket,
-	faShieldHalved,
-	faUser,
+  faBell,
+  faBookmark,
+  faClock,
+  faCreditCard,
+  faGear,
+  faHome,
+  faNewspaper,
+  faRightFromBracket,
+  faShieldHalved,
+  faUser
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
 import { JSX } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type ProfileRowProps = {
@@ -35,16 +33,17 @@ export default function Profile(): JSX.Element {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityLabel="Go back"
-              hitSlop={8}
-            >
-              <FontAwesomeIcon icon={faArrowLeft} size={16} color="#17201A" />
-            </Pressable>
+            <Pressable onPress={() => router.back()}>
+                   <Text style={styles.backIcon}>‹</Text>
+            </Pressable> 
+
+          
             <View style={styles.logoMark}>
-              <Text style={styles.logoText}>CM</Text>
+              <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
             </View>
+
+
+
             <Text style={styles.headerTitle}>Profile</Text>
             <Pressable
               style={styles.headerAction}
@@ -105,29 +104,23 @@ export default function Profile(): JSX.Element {
           />
         </ScrollView>
 
-        <View style={styles.bottomNav}>
-          <Pressable
-            onPress={() => router.push("/home")}
-            accessibilityLabel="Go to Home"
-          >
-            <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
-          </Pressable>
-          <Pressable accessibilityLabel="View sites">
-            <FontAwesomeIcon icon={faMap} size={20} color="#124A2A" />
-          </Pressable>
-          <Pressable
-            style={styles.addButton}
-            accessibilityLabel="Create report"
-          >
-            <Text style={styles.addButtonText}>+</Text>
-          </Pressable>
-          <Pressable accessibilityLabel="View alerts">
-            <FontAwesomeIcon icon={faBell} size={20} color="#124A2A" />
-          </Pressable>
-          <Pressable accessibilityLabel="View profile">
-            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
-          </Pressable>
-        </View>
+             <View style={styles.bottomNav}>
+                   <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
+                       <FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
+                   </Pressable>
+                  <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" ><view> <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" /> </view></Pressable>
+       
+       
+                 <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
+                   <Text style={styles.addButtonText}>+</Text>
+                 </Pressable>
+                 <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">
+                   <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
+                 </Pressable>
+                 <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
+                   <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
+                 </Pressable>
+               </View>
       </View>
     </SafeAreaView>
   );
@@ -169,6 +162,12 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#FFFFFF" },
   content: { paddingHorizontal: 16, paddingBottom: 24 },
   header: { height: 52, flexDirection: "row", alignItems: "center" },
+    backIcon: {
+    color: '#17201A',
+    fontSize: 32,
+    lineHeight: 32,
+    marginRight: 8,
+  },
   logoMark: {
     width: 25,
     height: 25,
@@ -179,6 +178,11 @@ const styles = StyleSheet.create({
     marginLeft: 13,
   },
   logoText: { color: "#FFFFFF", fontSize: 8, fontWeight: "800" },
+  logo: { width: 52,
+    height: 52, 
+    resizeMode: 'contain' 
+  },
+
   headerTitle: { color: "#17201A", fontSize: 12, marginLeft: 7 },
   headerAction: { marginLeft: "auto", padding: 8 },
   profileSummary: { flexDirection: "row", alignItems: "center", marginTop: 16 },

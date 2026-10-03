@@ -1,8 +1,8 @@
-import { faBell, faHome, faMap, faUser } from "@fortawesome/free-solid-svg-icons";
+import { faBell, faHome, faNewspaper, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { router } from 'expo-router';
 import { JSX } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PreviewCampaign(): JSX.Element {
@@ -14,9 +14,13 @@ export default function PreviewCampaign(): JSX.Element {
             <Pressable onPress={() => router.back()} accessibilityLabel="Go back">
               <Text style={styles.backIcon}>‹</Text>
             </Pressable>
-            <View style={styles.logoMark}>
-              <Text style={styles.logoText}>CM</Text>
-            </View>
+           
+           
+                       <View style={styles.logoMark}>
+                         <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
+                       </View>
+
+
             <Text style={styles.headerTitle}>Musgrave Road, near Botanic Gardens</Text>
           </View>
 
@@ -52,9 +56,7 @@ export default function PreviewCampaign(): JSX.Element {
                     <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
                         <FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
                     </Pressable>
-                    <Pressable>
-                        <FontAwesomeIcon icon={faMap} size={20} color="#124A2A"/>
-                    </Pressable>
+                  <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" ><view> <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" /> </view></Pressable>
                   <Pressable style={styles.addButton} onPress={() => {}}>
                     <Text style={styles.addButtonText}>+</Text>
                   </Pressable>
@@ -96,6 +98,10 @@ const styles = StyleSheet.create({
   backIcon: { color: '#17201A', fontSize: 32, lineHeight: 32, marginRight: 6 },
   logoMark: { width: 25, height: 25, borderRadius: 13, backgroundColor: '#36B86B', alignItems: 'center', justifyContent: 'center' },
   logoText: { color: '#FFFFFF', fontSize: 8, fontWeight: '800' },
+   logo: { width: 52,
+    height: 52, 
+    resizeMode: 'contain' 
+  },
   headerTitle: { flex: 1, color: '#17201A', fontSize: 10, marginLeft: 7 },
   photoPlaceholder: { height: 285, backgroundColor: '#7D927C', position: 'relative', overflow: 'hidden' },
   photoSky: { position: 'absolute', top: 0, left: 0, right: 0, height: 105, backgroundColor: '#A9B8A2' },

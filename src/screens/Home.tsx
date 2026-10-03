@@ -1,4 +1,4 @@
-import { faBell, faHome, faMap, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faBell, faHome, faNewspaper, faUser } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
 import { JSX } from 'react';
@@ -13,7 +13,6 @@ export default function Home(): JSX.Element {
       <View style={styles.screen}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.backIcon}>‹</Text>
             <View style={styles.logoMark}>
              <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
             </View>
@@ -24,14 +23,7 @@ export default function Home(): JSX.Element {
             <Text style={styles.welcomeText}>Reshaping communities, Restoring Value</Text>
           </View>
 
-          <View style={styles.actionRow}>
-            <Pressable style={[styles.actionButton, styles.primaryButton]} onPress={() => {router.push('/reportdumping')}}>
-              <Text style={styles.primaryButtonText}>Report a Dumping Site</Text>
-            </Pressable>
-            <Pressable style={[styles.actionButton, styles.secondaryButton]} onPress={() => {}}>
-              <Text style={styles.secondaryButtonText}>View Map &amp; List of Sites</Text>
-            </Pressable>
-          </View>
+        
 
           <Text style={styles.sectionTitle}>Nearby Dumping Sites</Text>
           <View style={styles.sectionCard}>
@@ -110,10 +102,10 @@ export default function Home(): JSX.Element {
             <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
                 <FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
             </Pressable>
-            <Pressable>
-                <FontAwesomeIcon icon={faMap} size={20} color="#124A2A"/>
-            </Pressable>
-          <Pressable style={styles.addButton} onPress={() => {}}>
+           <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" ><view> <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" /> </view></Pressable>
+
+
+          <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
           <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">

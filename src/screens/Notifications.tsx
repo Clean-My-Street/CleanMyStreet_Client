@@ -1,11 +1,9 @@
 import {
-	faArrowLeft,
 	faBell,
 	faCheck,
 	faHome,
-	faMap,
-	faPlus,
-	faUser,
+	faNewspaper,
+	faUser
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { router } from 'expo-router';
@@ -107,9 +105,12 @@ export default function Notifications(): JSX.Element {
 		<SafeAreaView style={styles.safeArea}>
 			<View style={styles.screen}>
 				<View style={styles.header}>
-					<Pressable onPress={() => router.back()} accessibilityLabel="Go back" hitSlop={8}>
-						<FontAwesomeIcon icon={faArrowLeft} size={17} color={colors.green} />
-					</Pressable>
+				  <Pressable
+							onPress={() => router.back()}
+							
+						  >
+						  <Text style={styles.backIcon}>‹</Text>
+						  </Pressable>
 					<Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
 					<Text style={styles.headerTitle}>Notifications</Text>
 				</View>
@@ -172,28 +173,23 @@ export default function Notifications(): JSX.Element {
 						</View>
 					)}
 				</ScrollView>
-
-				<View style={styles.bottomNav}>
-					<Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
-						<FontAwesomeIcon icon={faHome} size={20} color={colors.green} />
-					</Pressable>
-					<Pressable onPress={() => router.push('/location')} accessibilityLabel="View sites">
-						<FontAwesomeIcon icon={faMap} size={20} color={colors.green} />
-					</Pressable>
-					<Pressable
-						style={styles.addButton}
-						onPress={() => router.push('/reportdumping')}
-						accessibilityLabel="Create report"
-					>
-						<Text style={styles.addButtonText}>+</Text>
-					</Pressable>
-					<Pressable accessibilityLabel="Notifications" accessibilityState={{ selected: true }}>
-						<FontAwesomeIcon icon={faBell} size={20} color="#124A2A" />
-					</Pressable>
-					<Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
-						<FontAwesomeIcon icon={faUser} size={20} color={colors.green} />
-					</Pressable>
-				</View>
+					  <View style={styles.bottomNav}>
+							<Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
+								<FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
+							</Pressable>
+						   <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" ><view> <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" /> </view></Pressable>
+				
+				
+						  <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
+							<Text style={styles.addButtonText}>+</Text>
+						  </Pressable>
+						  <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">
+							<FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
+						  </Pressable>
+						  <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
+							<FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
+						  </Pressable>
+						</View>
 			</View>
 		</SafeAreaView>
 	);
@@ -230,6 +226,12 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		justifyContent: 'space-between',
 	},
+	  backIcon: {
+    color: '#17201A',
+    fontSize: 32,
+    lineHeight: 32,
+    marginRight: 8,
+  },
 	unreadCount: { backgroundColor: colors.tealPale, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4 },
 	unreadCountText: { color: colors.tealDark, fontSize: 11, fontWeight: '700' },
 	markAllText: { color: colors.tealDark, fontSize: 12, fontWeight: '700' },
