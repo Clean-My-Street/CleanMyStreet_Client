@@ -75,32 +75,32 @@ export default function Profile(): JSX.Element {
           </View>
 
           <ProfileSection title="Account">
-            <ProfileRow icon={faClock} label="My Activity" onPress={() => {}} />
+            <ProfileRow icon={faClock} label="My Activity" onPress={() => router.push('/myactivity')} />
             <ProfileRow
               icon={faBookmark}
               label="Saved Items"
-              onPress={() => {}}
+              onPress={() => router.push('/saveditems')}
             />
             <ProfileRow
               icon={faCreditCard}
               label="Payment Methods"
-              onPress={() => {}}
+              onPress={() => router.push('/paymentmethods')}
             />
           </ProfileSection>
 
           <ProfileSection title="Settings">
-            <ProfileRow icon={faGear} label="Settings" onPress={() => {}} />
+            <ProfileRow icon={faGear} label="Settings" onPress={() => router.push('/settings')} />
             <ProfileRow
               icon={faShieldHalved}
               label="Privacy & Security"
-              onPress={() => {}}
+              onPress={() => router.push('/privacysecurity')}
             />
           </ProfileSection>
 
           <ProfileRow
             icon={faRightFromBracket}
             label="Log out"
-            onPress={() => {}}
+            onPress={() => router.push('/')}
           />
         </ScrollView>
 
