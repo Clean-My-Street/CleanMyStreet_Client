@@ -7,7 +7,7 @@ export function FirstPage(): JSX.Element {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
 
   return (
-    <SafeAreaView>
+    <SafeAreaView style={{ flex: 1}}>
       <View style={styles.container}>
         <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
         <Text style={styles.textTitle}>CleanMyStreetZA</Text>

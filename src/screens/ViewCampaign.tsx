@@ -21,12 +21,7 @@ export default function ViewCampaign(): JSX.Element {
 					</View>
 
 					<View style={styles.photoPlaceholder}>
-						<View style={styles.sky} />
-						<View style={styles.fence} />
-						<View style={styles.ground} />
-						<View style={styles.path} />
-						<Text style={styles.photoTitle}>Campaign site photo placeholder</Text>
-						<Text style={styles.photoCaption}>Replace with a verified cleanup-site image</Text>
+						<Image source={require('../../assets/images/dumpingsite.jpeg')} style={styles.dumpingSiteImage} />
 					</View>
 
 					<View style={styles.fundingPanel}>
@@ -76,7 +71,7 @@ export default function ViewCampaign(): JSX.Element {
 					<Pressable accessibilityLabel="View sites">
 						<FontAwesomeIcon icon={faMap} size={20} color="#124A2A" />
 					</Pressable>
-					<Pressable style={styles.addButton} onPress={() => {}} accessibilityLabel="Create report">
+					<Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')} accessibilityLabel="Create report">
 						<Text style={styles.addButtonText}>+</Text>
 					</Pressable>
 					<Pressable accessibilityLabel="View alerts">
@@ -117,13 +112,8 @@ const styles = StyleSheet.create({
     resizeMode: 'contain' 
   },
 	headerTitle: { flex: 1, color: '#17201A', fontSize: 11, marginLeft: 2 },
-	photoPlaceholder: { height: 245, backgroundColor: '#73816C', position: 'relative', overflow: 'hidden', justifyContent: 'flex-end', padding: 14 },
-	sky: { position: 'absolute', top: 0, left: 0, right: 0, height: 96, backgroundColor: '#B7C4B5' },
-	fence: { position: 'absolute', top: 76, left: 20, right: -10, height: 25, backgroundColor: '#596356', transform: [{ rotate: '-3deg' }] },
-	ground: { position: 'absolute', bottom: -30, left: -20, right: -20, height: 185, backgroundColor: '#646B58', transform: [{ rotate: '-5deg' }] },
-	path: { position: 'absolute', right: -18, top: 70, width: 145, height: 250, backgroundColor: '#9B866A', transform: [{ rotate: '22deg' }] },
-	photoTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', zIndex: 1 },
-	photoCaption: { color: '#EEF5EE', fontSize: 9, marginTop: 3, zIndex: 1 },
+	photoPlaceholder: { height: 245, backgroundColor: '#73816C', position: 'relative', overflow: 'hidden', justifyContent: 'flex-end', padding: 0},
+	dumpingSiteImage: { width: '100%', height: '100%', resizeMode: 'cover' },
 	fundingPanel: { backgroundColor: '#F3F4F3', padding: 14, borderBottomWidth: 1, borderBottomColor: '#E2E5E2' },
 	fundingSummary: { color: '#17201A', fontSize: 11, fontWeight: '600' },
 	fundingMeta: { color: '#68706A', fontSize: 9, marginTop: 4 },
