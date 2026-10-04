@@ -128,7 +128,9 @@ export default function ReportDumping(): JSX.Element {
           <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
             <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
           </Pressable>
-          <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" ><view> <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" /> </view></Pressable>
+          <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" >
+            <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
+          </Pressable>
 
           <Pressable style={styles.addButton} onPress={() => { }}>
             <Text style={styles.addButtonText}>+</Text>
