@@ -1,19 +1,19 @@
 import {
-    faBell,
-    faHome,
-    faNewspaper,
-    faUser
+  faBell,
+  faHome,
+  faNewspaper,
+  faUser
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
 import { JSX, useState } from 'react';
 import {
-    Image,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -124,9 +124,7 @@ export default function News(): JSX.Element {
             {/* Article */}
             <View style={styles.fullArticle}>
               <View style={styles.articleImageLarge}>
-                <Text style={styles.imagePlaceholder}>
-                  Image
-                </Text>
+                <Image source={require('../../assets/images/10.jpeg')} style={styles.articleImage} />
               </View>
 
               <Text style={styles.fullArticleTitle}>
@@ -294,9 +292,7 @@ export default function News(): JSX.Element {
                 </View>
 
                 <View style={styles.newsImage}>
-                  <Text style={styles.imagePlaceholder}>
-                    Image
-                  </Text>
+                  <Image source={require('../../assets/images/13.jpeg')} style={styles.articleImage} />
                 </View>
               </Pressable>
             ))}
@@ -484,7 +480,7 @@ const styles = StyleSheet.create({
   newsCard: {
     minHeight: 135,
     borderRadius: 18,
-    backgroundColor: '#38B867',
+    backgroundColor: '#e6e6e6',
     padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -533,10 +529,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  articleImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 15,
+  },
+
   imagePlaceholder: {
-    color: '#68706A',
+    color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '600',
   },
 
   emptyContainer: {
