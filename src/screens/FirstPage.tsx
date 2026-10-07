@@ -1,25 +1,34 @@
 import { router } from 'expo-router';
 import { JSX, useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export function FirstPage(): JSX.Element {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const { width } = useWindowDimensions();
+  const horizontalPadding = Math.min(50, Math.max(20, width * 0.1));
+  const subtitleFontSize = Math.min(40, Math.max(28, width * 0.105));
 
   return (
-    <SafeAreaView style={{ flex: 1}}>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.container}>
         <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
-        <Text style={styles.textTitle}>CleanMyStreetZA</Text>
+        <Text style={[styles.textTitle, { fontSize: Math.min(30, Math.max(22, width * 0.075)) }]}>CleanMyStreetZA</Text>
       </View>
 
-      <View style={styles.container2}>
-        <Text style={styles.textSubtitle}>Reshaping Communities,</Text>
-        <Text style={styles.textSubtitle}>Restoring Value</Text>
+      <View style={[styles.container2, { paddingHorizontal: horizontalPadding }]}>
+        <Text style={[styles.textSubtitle, { fontSize: subtitleFontSize }]}>Reshaping Communities,</Text>
+        <Text style={[styles.textSubtitle, { fontSize: subtitleFontSize }]}>Restoring Value</Text>
         <Text style={styles.textContent}>Report Dumping Sites, Fund Cleanups and track progress
           in your community.</Text>
       </View>
-      <View style={styles.container3}>
+      <View style={[styles.container3, { paddingHorizontal: horizontalPadding }]}>
         <Text style={styles.textWelcome}>{isCreatingAccount ? 'Create Your Account' : 'Welcome Back'}</Text>
         <Text style={styles.formIntro}>
           {isCreatingAccount ? 'Join your community and help restore local spaces' : 'Log In or Create an Account'}
@@ -72,11 +81,15 @@ export function FirstPage(): JSX.Element {
         </View>
 
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  scrollView: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
   logo: {
     width: 50,
     height: 50,
@@ -98,12 +111,11 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    fontSize: 30,
-    fontWeight: 'bold',
     paddingTop: 5,
     paddingBottom: 5,
-    paddingRight: 50,
     paddingLeft: 10,
+    paddingRight: 10,
+    gap: 8,
   },
   container2: {
 
@@ -111,17 +123,14 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingTop: 40,
     paddingBottom: 50,
-    paddingRight: 50,
-    paddingLeft: 50,
     margin: 0,
   },
   container3: {
     width: '100%',
     paddingTop: 20,
     paddingBottom: 50,
-    paddingRight: 50,
-    paddingLeft: 50,
     marginTop: -30,
+    flexGrow: 1,
     zIndex: 10,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
@@ -160,16 +169,16 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   textContent: {
-    width: '90%',
+    width: '100%',
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: 'Red Hat Display',
     paddingTop: 20,
     paddingBottom: 20,
     marginTop: 0,
   },
   button1: {
-    width: '50%',
+    flex: 1,
     backgroundColor: '#1F7A3F',
     color: '#FFFFFF',
     padding: 10,
@@ -185,7 +194,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   button2: {
-    width: '50%',
+    flex: 1,
     backgroundColor: '#f7f7f7',
     color: '#1F7A3F',
     padding: 10,
@@ -196,7 +205,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F7A3F',
   },
   button3: {
-    width: '50%',
+    width: '100%',
     backgroundColor: '#1F7A3F',
     padding: 10,
     borderRadius: 5,

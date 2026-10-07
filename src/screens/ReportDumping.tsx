@@ -1,16 +1,16 @@
-import { faBell, faHome, faNewspaper, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faComments, faHome, faNewspaper, faUser } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { JSX, useState } from 'react';
 import {
-  Alert,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View
+    Alert,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -135,8 +135,8 @@ export default function ReportDumping(): JSX.Element {
           <Pressable style={styles.addButton} onPress={() => { }}>
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
-          <Pressable>
-            <FontAwesomeIcon icon={faBell} size={20} color="#124A2A" />
+          <Pressable onPress={() => router.push('/community')} accessibilityRole="button" accessibilityLabel="Open community messages">
+            <FontAwesomeIcon icon={faComments} size={20} color="#124A2A" />
           </Pressable>
           <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
             <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
@@ -187,8 +187,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  logo: { width: 52,
-    height: 52, 
+  logo: { width: 30,
+    height: 30, 
     resizeMode: 'contain' 
   },
 

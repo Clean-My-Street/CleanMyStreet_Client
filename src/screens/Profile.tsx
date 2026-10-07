@@ -1,14 +1,14 @@
 import {
-  faBell,
-  faBookmark,
-  faClock,
-  faCreditCard,
-  faGear,
-  faHome,
-  faNewspaper,
-  faRightFromBracket,
-  faShieldHalved,
-  faUser
+    faBookmark,
+    faClock,
+    faComments,
+    faCreditCard,
+    faGear,
+    faHome,
+    faNewspaper,
+    faRightFromBracket,
+    faShieldHalved,
+    faUser
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
@@ -45,12 +45,6 @@ export default function Profile(): JSX.Element {
 
 
             <Text style={styles.headerTitle}>Profile</Text>
-            <Pressable
-              style={styles.headerAction}
-              accessibilityLabel="View notifications"
-            >
-              <FontAwesomeIcon icon={faBell} size={15} color="#17201A" />
-            </Pressable>
           </View>
 
           <View style={styles.profileSummary}>
@@ -116,8 +110,8 @@ export default function Profile(): JSX.Element {
                  <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
                    <Text style={styles.addButtonText}>+</Text>
                  </Pressable>
-                 <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">
-                   <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
+                 <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages">
+                   <FontAwesomeIcon icon={faComments} size={20} color="#124A2A"/>
                  </Pressable>
                  <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
                    <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
@@ -180,13 +174,12 @@ const styles = StyleSheet.create({
     marginLeft: 13,
   },
   logoText: { color: "#FFFFFF", fontSize: 8, fontWeight: "800" },
-  logo: { width: 52,
-    height: 52, 
+  logo: { width: 25,
+    height: 25, 
     resizeMode: 'contain' 
   },
 
   headerTitle: { color: "#17201A", fontSize: 12, marginLeft: 7 },
-  headerAction: { marginLeft: "auto", padding: 8 },
   profileSummary: { flexDirection: "row", alignItems: "center", marginTop: 16 },
   avatar: {
     width: 44,

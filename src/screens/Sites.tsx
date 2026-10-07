@@ -1,5 +1,5 @@
 import {
-  faBell,
+  faComments,
   faHome,
   faNewspaper,
   faUser
@@ -84,12 +84,12 @@ export default function Sites(): JSX.Element {
         {/* HEADER */}
         <View style={styles.header}>
 
-            <Pressable onPress={() => router.back()}>
-                         <Text style={styles.backIcon}>‹</Text>
-                      </Pressable> 
-            <View style={styles.logoMark}>
-              <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
-            </View>
+          <Pressable onPress={() => router.back()}>
+            <Text style={styles.backIcon}>‹</Text>
+          </Pressable>
+          <View style={styles.logoMark}>
+            <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
+          </View>
 
           <Text style={styles.headerTitle}>
             Map & Nearby Sites
@@ -171,7 +171,7 @@ export default function Sites(): JSX.Element {
                 style={[
                   styles.filterButton,
                   activeFilter === filter &&
-                    styles.activeFilterButton,
+                  styles.activeFilterButton,
                 ]}
                 onPress={() => setActiveFilter(filter)}
               >
@@ -179,7 +179,7 @@ export default function Sites(): JSX.Element {
                   style={[
                     styles.filterText,
                     activeFilter === filter &&
-                      styles.activeFilterText,
+                    styles.activeFilterText,
                   ]}
                 >
                   {filter}
@@ -276,23 +276,25 @@ export default function Sites(): JSX.Element {
         </ScrollView>
 
         {/* BOTTOM NAVIGATION */}
-              <View style={styles.bottomNav}>
-                    <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
-                        <FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
-                    </Pressable>
-                   <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" ><view> <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" /> </view></Pressable>
-        
-        
-                  <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
-                    <Text style={styles.addButtonText}>+</Text>
-                  </Pressable>
-                  <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">
-                    <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
-                  </Pressable>
-                  <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
-                    <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
-                  </Pressable>
-                </View>
+        <View style={styles.bottomNav}>
+          <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
+            <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
+          </Pressable>
+          <Pressable onPress={() => router.push('/news')} accessibilityLabel="View News" >
+            <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
+          </Pressable>
+
+
+          <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
+            <Text style={styles.addButtonText}>+</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages">
+            <FontAwesomeIcon icon={faComments} size={20} color="#124A2A" />
+          </Pressable>
+          <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
+            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
+          </Pressable>
+        </View>
 
       </View>
     </SafeAreaView>
@@ -408,9 +410,10 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
   },
-   logo: { width: 52,
-    height: 52, 
-    resizeMode: 'contain' 
+  logo: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain'
   },
 
   headerTitle: {

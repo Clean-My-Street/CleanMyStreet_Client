@@ -1,9 +1,9 @@
 import {
-	faBell,
-	faCheck,
-	faHome,
-	faNewspaper,
-	faUser
+    faCheck,
+    faComments,
+    faHome,
+    faNewspaper,
+    faUser
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { router } from 'expo-router';
@@ -185,8 +185,8 @@ export default function Notifications(): JSX.Element {
 						  <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
 							<Text style={styles.addButtonText}>+</Text>
 						  </Pressable>
-						  <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">
-							<FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
+						  <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages">
+							<FontAwesomeIcon icon={faComments} size={20} color="#124A2A"/>
 						  </Pressable>
 						  <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
 							<FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>

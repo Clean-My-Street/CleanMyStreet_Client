@@ -1,7 +1,7 @@
 import {
-    faBell,
     faBookmark,
     faCheck,
+    faComments,
     faCreditCard,
     faHeart,
     faHome,
@@ -71,14 +71,6 @@ export default function ProfileOptionPage({ option }: ProfileOptionPageProps): J
 					</Pressable>
 					<Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
 					<Text style={styles.headerTitle}>{optionTitles[option]}</Text>
-					<Pressable
-						style={styles.headerAction}
-						onPress={() => router.push('/notifications')}
-						accessibilityRole="button"
-						accessibilityLabel="View notifications"
-					>
-						<FontAwesomeIcon icon={faBell} size={17} color={colors.ink} />
-					</Pressable>
 				</View>
 
 				<ScrollView
@@ -428,8 +420,8 @@ function BottomNavigation(): JSX.Element {
 			<Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')} accessibilityRole="button" accessibilityLabel="Report dumping">
 				<Text style={styles.addButtonText}>+</Text>
 			</Pressable>
-			<Pressable onPress={() => router.push('/notifications')} accessibilityRole="button" accessibilityLabel="View notifications">
-				<FontAwesomeIcon icon={faBell} size={20} color={colors.green} />
+			<Pressable onPress={() => router.push('/community')} accessibilityRole="button" accessibilityLabel="Open community messages">
+				<FontAwesomeIcon icon={faComments} size={20} color={colors.green} />
 			</Pressable>
 			<Pressable onPress={() => router.push('/profile')} accessibilityRole="button" accessibilityLabel="View profile">
 				<FontAwesomeIcon icon={faUser} size={20} color={colors.green} />
@@ -465,7 +457,6 @@ const styles = StyleSheet.create({
 	backIcon: { color: colors.ink, fontSize: 32, lineHeight: 34 },
 	logo: { width: 27, height: 27, resizeMode: 'contain' },
 	headerTitle: { color: colors.green, fontSize: 15, fontWeight: '700', flex: 1 },
-	headerAction: { padding: 8 },
 	content: { padding: 16, paddingBottom: 24, flexGrow: 1 },
 	introCard: {
 		flexDirection: 'row',

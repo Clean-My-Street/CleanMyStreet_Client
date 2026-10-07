@@ -1,19 +1,19 @@
 import {
-  faBell,
-  faHome,
-  faNewspaper,
-  faUser
+    faComments,
+    faHome,
+    faNewspaper,
+    faUser
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
 import { JSX, useState } from 'react';
 import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -183,11 +183,11 @@ export default function News(): JSX.Element {
             </Pressable>
 
             <Pressable
-              onPress={() => router.push('/notifications')}
-              accessibilityLabel="View notifications"
+              onPress={() => router.push('/community')}
+              accessibilityLabel="Open community messages"
             >
               <FontAwesomeIcon
-                icon={faBell}
+                icon={faComments}
                 size={20}
                 color="#124A2A"
               />
@@ -340,11 +340,11 @@ export default function News(): JSX.Element {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push('/notifications')}
-            accessibilityLabel="View notifications"
+            onPress={() => router.push('/community')}
+            accessibilityLabel="Open community messages"
           >
             <FontAwesomeIcon
-              icon={faBell}
+              icon={faComments}
               size={20}
               color="#124A2A"
             />
@@ -413,8 +413,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
-     logo: { width: 52,
-    height: 52, 
+    logo: { width: 38,
+      height: 38, 
     resizeMode: 'contain' 
   },
    backIcon: {
