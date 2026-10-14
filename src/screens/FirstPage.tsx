@@ -1,13 +1,145 @@
 import { router } from 'expo-router';
 import { JSX, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import {
+  loginWithEmail,
+  registerWithEmail,
+} from '../services/authService';
 
 export function FirstPage(): JSX.Element {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const { width } = useWindowDimensions();
+
   const horizontalPadding = Math.min(50, Math.max(20, width * 0.1));
   const subtitleFontSize = Math.min(40, Math.max(28, width * 0.105));
+
+  async function handleAuthentication() {
+    const cleanEmail = email.trim();
+
+    // Validate required fields.
+    if (!cleanEmail || !password) {
+      Alert.alert('Missing information', 'Please enter your email and password.');
+      return;
+    }
+
+    // Basic email validation.
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(cleanEmail)) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      return;
+    }
+
+    if (isCreatingAccount) {
+      if (!fullName.trim()) {
+        Alert.alert('Missing name', 'Please enter your full name.');
+        return;
+      }
+
+      if (password.length < 6) {
+        Alert.alert(
+          'Password too short',
+          'Your password must contain at least 6 characters.'
+        );
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        Alert.alert(
+          'Passwords do not match',
+          'Please make sure both passwords are the same.'
+        );
+        return;
+      }
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      if (isCreatingAccount) {
+        await registerWithEmail(fullName, cleanEmail, password);
+
+        Alert.alert(
+          'Account created',
+          'Your CleanMyStreet account has been created successfully.',
+          [
+            {
+              text: 'Continue',
+              onPress: () => router.replace('/home'),
+            },
+          ]
+        );
+      } else {
+        await loginWithEmail(cleanEmail, password);
+
+        // Navigate only after Firebase confirms successful login.
+        router.replace('/home');
+      }
+    } catch (error: any) {
+      let message = 'Something went wrong. Please try again.';
+
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          message = 'An account with this email already exists. Try logging in.';
+          break;
+
+        case 'auth/invalid-email':
+          message = 'Please enter a valid email address.';
+          break;
+
+        case 'auth/weak-password':
+          message = 'Your password is too weak. Use at least 6 characters.';
+          break;
+
+        case 'auth/invalid-credential':
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+          message = 'Incorrect email or password.';
+          break;
+
+        case 'auth/too-many-requests':
+          message = 'Too many attempts. Please wait a while and try again.';
+          break;
+
+        case 'auth/network-request-failed':
+          message = 'Network error. Check your internet connection.';
+          break;
+
+        case 'auth/operation-not-allowed':
+          message = 'Email/password sign-in is not enabled in Firebase.';
+          break;
+      }
+
+      console.error('Authentication error:', error.code, error.message);
+
+      Alert.alert(
+        isCreatingAccount ? 'Registration failed' : 'Login failed',
+        message
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -17,79 +149,205 @@ export function FirstPage(): JSX.Element {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-      <View style={styles.container}>
-        <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
-        <Text style={[styles.textTitle, { fontSize: Math.min(30, Math.max(22, width * 0.075)) }]}>CleanMyStreetZA</Text>
-      </View>
+        <View style={styles.container}>
+          <Image
+            source={require('../../assets/images/cleanmystreet.png')}
+            style={styles.logo}
+          />
 
-      <View style={[styles.container2, { paddingHorizontal: horizontalPadding }]}>
-        <Text style={[styles.textSubtitle, { fontSize: subtitleFontSize }]}>Reshaping Communities,</Text>
-        <Text style={[styles.textSubtitle, { fontSize: subtitleFontSize }]}>Restoring Value</Text>
-        <Text style={styles.textContent}>Report Dumping Sites, Fund Cleanups and track progress
-          in your community.</Text>
-      </View>
-      <View style={[styles.container3, { paddingHorizontal: horizontalPadding }]}>
-        <Text style={styles.textWelcome}>{isCreatingAccount ? 'Create Your Account' : 'Welcome Back'}</Text>
-        <Text style={styles.formIntro}>
-          {isCreatingAccount ? 'Join your community and help restore local spaces' : 'Log In or Create an Account'}
-        </Text>
-
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button1, !isCreatingAccount ? styles.selectedButton : styles.inactiveLoginButton]}
-            onPress={() => setIsCreatingAccount(false)}
+          <Text
+            style={[
+              styles.textTitle,
+              { fontSize: Math.min(30, Math.max(22, width * 0.075)) },
+            ]}
           >
-            <Text style={[styles.buttonText1, isCreatingAccount && styles.inactiveLoginText]}>Log In</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button2, isCreatingAccount && styles.selectedCreateButton]}
-            onPress={() => setIsCreatingAccount(true)}
-          >
-            <Text style={[styles.buttonText2, isCreatingAccount && styles.activeButtonText]}>Create Account</Text>
-          </TouchableOpacity>
+            CleanMyStreetZA
+          </Text>
         </View>
 
-        <View style={ styles.containerInput}>
-          {isCreatingAccount && (
-            <>
-              <Text style={styles.inputText}>Full Name:</Text>
-              <TextInput style={styles.inputStyles} placeholder="Eric Ndlovu" />
-            </>
-          )}
+        <View
+          style={[
+            styles.container2,
+            { paddingHorizontal: horizontalPadding },
+          ]}
+        >
+          <Text style={[styles.textSubtitle, { fontSize: subtitleFontSize }]}>
+            Reshaping Communities,
+          </Text>
 
-          <Text style={styles.inputText}>Email or Phone Number:</Text>
-          <TextInput style={styles.inputStyles} placeholder="eric@example.com / 083 000 0000" />
+          <Text style={[styles.textSubtitle, { fontSize: subtitleFontSize }]}>
+            Restoring Value
+          </Text>
 
-          <Text style={styles.inputText}>Password:</Text>
-          <TextInput style={styles.inputStyles} placeholder="•••••••••••••" secureTextEntry />
-
-          {isCreatingAccount && (
-            <>
-              <Text style={styles.inputText}>Confirm Password:</Text>
-              <TextInput style={styles.inputStyles} placeholder="Repeat your password" secureTextEntry />
-            </>
-          )}
+          <Text style={styles.textContent}>
+            Report Dumping Sites, Fund Cleanups and track progress
+            in your community.
+          </Text>
         </View>
 
-        <View style={{width: '100%', marginTop: 20, alignItems: 'center'}}>
-          <TouchableOpacity style={styles.button3} onPress={() => router.push('/home')}>
-            <Text style={styles.buttonText1}>{isCreatingAccount ? 'Create Account' : 'Log In'}</Text>
-          </TouchableOpacity>
-        <Text style={{marginTop: 10, marginBottom: 10, fontWeight: 'bold'}}>OR</Text>
-        <Image source={require('../../assets/expo.icon/Assets/search.png')} style={{width: 30, height: 30}} />
-        </View>
+        <View
+          style={[
+            styles.container3,
+            { paddingHorizontal: horizontalPadding },
+          ]}
+        >
+          <Text style={styles.textWelcome}>
+            {isCreatingAccount ? 'Create Your Account' : 'Welcome Back'}
+          </Text>
 
-      </View>
+          <Text style={styles.formIntro}>
+            {isCreatingAccount
+              ? 'Join your community and help restore local spaces'
+              : 'Log In or Create an Account'}
+          </Text>
+
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[
+                styles.button1,
+                !isCreatingAccount
+                  ? styles.selectedButton
+                  : styles.inactiveLoginButton,
+              ]}
+              disabled={isSubmitting}
+              onPress={() => setIsCreatingAccount(false)}
+            >
+              <Text
+                style={[
+                  styles.buttonText1,
+                  isCreatingAccount && styles.inactiveLoginText,
+                ]}
+              >
+                Log In
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.button2,
+                isCreatingAccount && styles.selectedCreateButton,
+              ]}
+              disabled={isSubmitting}
+              onPress={() => setIsCreatingAccount(true)}
+            >
+              <Text
+                style={[
+                  styles.buttonText2,
+                  isCreatingAccount && styles.activeButtonText,
+                ]}
+              >
+                Create Account
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.containerInput}>
+            {isCreatingAccount && (
+              <>
+                <Text style={styles.inputText}>Full Name:</Text>
+
+                <TextInput
+                  style={styles.inputStyles}
+                  placeholder="Eric Ndlovu"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                  editable={!isSubmitting}
+                />
+              </>
+            )}
+
+            <Text style={styles.inputText}>Email Address:</Text>
+
+            <TextInput
+              style={styles.inputStyles}
+              placeholder="eric@example.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              editable={!isSubmitting}
+            />
+
+            <Text style={styles.inputText}>Password:</Text>
+
+            <TextInput
+              style={styles.inputStyles}
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoComplete={isCreatingAccount ? 'new-password' : 'current-password'}
+              editable={!isSubmitting}
+            />
+
+            {isCreatingAccount && (
+              <>
+                <Text style={styles.inputText}>Confirm Password:</Text>
+
+                <TextInput
+                  style={styles.inputStyles}
+                  placeholder="Repeat your password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoComplete="new-password"
+                  editable={!isSubmitting}
+                />
+              </>
+            )}
+          </View>
+
+          <View style={styles.submitContainer}>
+            <TouchableOpacity
+              style={[
+                styles.button3,
+                isSubmitting && styles.disabledButton,
+              ]}
+              onPress={handleAuthentication}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.buttonText1}>
+                  {isCreatingAccount ? 'Create Account' : 'Log In'}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <Text style={styles.orText}>OR</Text>
+
+            <Text style={styles.googleNote}>
+              Google sign-in is not connected yet.
+            </Text>
+
+            <Image
+              source={require('../../assets/expo.icon/Assets/search.png')}
+              style={styles.googleIcon}
+            />
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  scrollView: { flex: 1 },
-  scrollContent: { flexGrow: 1 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   logo: {
     width: 50,
     height: 50,
@@ -118,7 +376,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   container2: {
-
     backgroundColor: '#1F7A3F',
     width: '100%',
     paddingTop: 40,
@@ -142,19 +399,22 @@ const styles = StyleSheet.create({
   },
   inputStyles: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
+    borderColor: '#CCCCCC',
+    borderRadius: 5,
+    padding: 12,
     marginBottom: 15,
+    color: '#17201A',
+    backgroundColor: '#FFFFFF',
   },
   inputText: {
     fontSize: 16,
-    color: '#000',
+    color: '#000000',
     marginBottom: 7,
   },
   buttonContainer: {
     flexDirection: 'row',
     marginTop: 20,
-    width: '100%'
+    width: '100%',
   },
   textTitle: {
     fontSize: 30,
@@ -180,7 +440,6 @@ const styles = StyleSheet.create({
   button1: {
     flex: 1,
     backgroundColor: '#1F7A3F',
-    color: '#FFFFFF',
     padding: 10,
     borderRadius: 5,
     marginRight: 10,
@@ -195,8 +454,7 @@ const styles = StyleSheet.create({
   },
   button2: {
     flex: 1,
-    backgroundColor: '#f7f7f7',
-    color: '#1F7A3F',
+    backgroundColor: '#F7F7F7',
     padding: 10,
     borderRadius: 5,
     alignItems: 'center',
@@ -207,9 +465,14 @@ const styles = StyleSheet.create({
   button3: {
     width: '100%',
     backgroundColor: '#1F7A3F',
-    padding: 10,
+    padding: 12,
     borderRadius: 5,
     alignItems: 'center',
+    minHeight: 46,
+    justifyContent: 'center',
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
   buttonText1: {
     color: '#FFFFFF',
@@ -226,5 +489,24 @@ const styles = StyleSheet.create({
   },
   activeButtonText: {
     color: '#FFFFFF',
+  },
+  submitContainer: {
+    width: '100%',
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  orText: {
+    marginTop: 10,
+    marginBottom: 10,
+    fontWeight: 'bold',
+  },
+  googleNote: {
+    color: '#68706A',
+    fontSize: 12,
+    marginBottom: 10,
+  },
+  googleIcon: {
+    width: 30,
+    height: 30,
   },
 });

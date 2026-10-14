@@ -1,4 +1,4 @@
-import { faComments, faHome, faNewspaper, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faBell, faHome, faNewspaper, faUser } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
 import { JSX, useState } from 'react';
@@ -154,16 +154,14 @@ export default function Location(): JSX.Element {
              <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
                  <FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
              </Pressable>
-            <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" >
-              <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
-            </Pressable>
+            <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" ><view> <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" /> </view></Pressable>
  
  
            <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
              <Text style={styles.addButtonText}>+</Text>
            </Pressable>
-           <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages">
-             <FontAwesomeIcon icon={faComments} size={20} color="#124A2A"/>
+           <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">
+             <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
            </Pressable>
            <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
              <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
@@ -216,8 +214,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  logo: { width: 32,
-   height: 32, 
+   logo: { width: 52,
+    height: 52, 
     resizeMode: 'contain' 
   },
 
