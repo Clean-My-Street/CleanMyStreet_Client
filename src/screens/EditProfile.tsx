@@ -1,6 +1,6 @@
 import {
-  faBell,
   faCamera,
+  faComments,
   faEnvelope,
   faHome,
   faNewspaper,
@@ -71,17 +71,6 @@ const handleAddPhoto = async () => {
           </View>
 
           <Text style={styles.headerTitle}>Edit Profile</Text>
-
-          <Pressable
-            style={styles.headerAction}
-            accessibilityLabel="View notifications"
-          >
-            <FontAwesomeIcon
-              icon={faBell}
-              size={15}
-              color="#17201A"
-            />
-          </Pressable>
         </View>
 
         {/* Centered Main Box */}
@@ -228,8 +217,8 @@ const handleAddPhoto = async () => {
                   <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
                     <Text style={styles.addButtonText}>+</Text>
                   </Pressable>
-                  <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="View notifications">
-                    <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
+                  <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages">
+                    <FontAwesomeIcon icon={faComments} size={20} color="#124A2A"/>
                   </Pressable>
                   <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
                     <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
@@ -275,8 +264,8 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '800',
   },
-   logo: { width: 52,
-    height: 52, 
+  logo: { width: 25,
+   height: 25, 
     resizeMode: 'contain' 
   },
 
@@ -290,11 +279,6 @@ const styles = StyleSheet.create({
     color: '#17201A',
     fontSize: 12,
     marginLeft: 7,
-  },
-
-  headerAction: {
-    marginLeft: 'auto',
-    padding: 8,
   },
 
   /* Scroll */

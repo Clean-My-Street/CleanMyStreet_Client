@@ -1,4 +1,4 @@
-import { faBell, faHome, faNewspaper, faUser } from "@fortawesome/free-solid-svg-icons";
+import { faComments, faHome, faNewspaper, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { router } from 'expo-router';
 import { JSX } from 'react';
@@ -57,8 +57,8 @@ export default function PreviewCampaign(): JSX.Element {
                   <Pressable style={styles.addButton} onPress={() => {}}>
                     <Text style={styles.addButtonText}>+</Text>
                   </Pressable>
-                  <Pressable>
-                    <FontAwesomeIcon icon={faBell} size={20} color="#124A2A"/>
+                  <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages">
+                    <FontAwesomeIcon icon={faComments} size={20} color="#124A2A"/>
                   </Pressable>
                   <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
                     <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
@@ -95,8 +95,8 @@ const styles = StyleSheet.create({
   backIcon: { color: '#17201A', fontSize: 32, lineHeight: 32, marginRight: 6 },
   logoMark: { width: 25, height: 25, borderRadius: 13, backgroundColor: '#36B86B', alignItems: 'center', justifyContent: 'center' },
   logoText: { color: '#FFFFFF', fontSize: 8, fontWeight: '800' },
-   logo: { width: 52,
-    height: 52, 
+  logo: { width: 25,
+   height: 25, 
     resizeMode: 'contain' 
   },
   headerTitle: { flex: 1, color: '#17201A', fontSize: 10, marginLeft: 7 },
