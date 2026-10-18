@@ -9,19 +9,56 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { router } from "expo-router";
-import { JSX } from "react";
+import { JSX, useState } from "react";
 import {
+	Alert,
 	Image,
+	Keyboard,
 	Pressable,
 	ScrollView,
 	StyleSheet,
 	Text,
+	TextInput,
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+	createCampaignContribution,
+	FEATURED_CAMPAIGN_ID,
+	getApiErrorMessage,
+} from "../services/api";
 
 export default function ViewCampaign(): JSX.Element {
-  return (
+	const [contributionAmount, setContributionAmount] = useState("100");
+	const [isContributing, setIsContributing] = useState(false);
+
+	const submitContribution = async () => {
+	  const amount = Number(contributionAmount);
+	  if (!Number.isSafeInteger(amount) || amount <= 0) {
+	    Alert.alert(
+	      "Invalid amount",
+	      "Enter a positive whole-number amount in ZAR.",
+	    );
+	    return;
+	  }
+	  if (isContributing) return;
+
+	  Keyboard.dismiss();
+	  setIsContributing(true);
+	  try {
+	    await createCampaignContribution(FEATURED_CAMPAIGN_ID, amount);
+	    Alert.alert("Pledge recorded", `Your R${amount} pledge has been saved.`);
+	  } catch (error) {
+	    Alert.alert(
+	      "Pledge not recorded",
+	      getApiErrorMessage(error, "Please try again."),
+	    );
+	  } finally {
+	    setIsContributing(false);
+	  }
+	};
+
+	return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
         <ScrollView
@@ -63,18 +100,37 @@ export default function ViewCampaign(): JSX.Element {
             <Text style={styles.sectionLabel}>Choose an amount</Text>
             <Text style={styles.amountLabel}>Own amount</Text>
             <View style={styles.amountRow}>
-              {["R50", "R100", "R250"].map((amount) => (
+              {["50", "100", "250"].map((preset) => (
                 <Pressable
-                  key={amount}
-                  style={styles.amountChip}
-                  onPress={() => {}}
+                  key={preset}
+                  style={[
+                    styles.amountChip,
+                    contributionAmount === preset && styles.amountChipSelected,
+                  ]}
+                  onPress={() => setContributionAmount(preset)}
                 >
-                  <Text style={styles.amountText}>{amount}</Text>
+                  <Text style={styles.amountText}>R{preset}</Text>
                 </Pressable>
               ))}
             </View>
-            <Pressable style={styles.contributeButton} onPress={() => {}}>
-              <Text style={styles.contributeText}>Contribute</Text>
+            <TextInput
+              value={contributionAmount}
+              onChangeText={setContributionAmount}
+              placeholder="Enter whole ZAR amount"
+              placeholderTextColor="#68706A"
+              keyboardType="number-pad"
+              style={styles.amountInput}
+              accessibilityLabel="Contribution amount in ZAR"
+            />
+            <Pressable
+              style={styles.contributeButton}
+              onPress={submitContribution}
+              disabled={isContributing}
+              accessibilityRole="button"
+            >
+              <Text style={styles.contributeText}>
+                {isContributing ? "Submitting..." : "Contribute"}
+              </Text>
             </Pressable>
             <Pressable style={styles.lightAction} onPress={() => {}}>
               <Text style={styles.lightActionText}>
@@ -223,7 +279,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
   },
+  amountChipSelected: {
+    backgroundColor: "#36B86B",
+  },
   amountText: { color: "#176A39", fontSize: 10, fontWeight: "600" },
+  amountInput: {
+    minHeight: 38,
+    borderWidth: 1,
+    borderColor: "#D5D8D5",
+    borderRadius: 6,
+    color: "#17201A",
+    fontSize: 12,
+    paddingHorizontal: 10,
+    marginBottom: 9,
+  },
   contributeButton: {
     height: 34,
     borderRadius: 6,

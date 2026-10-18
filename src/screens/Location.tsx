@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
 import { JSX, useState } from "react";
 import {
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -17,10 +18,42 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { createReport, getApiErrorMessage } from "../services/api";
 
 export default function Location(): JSX.Element {
   const router = useRouter();
   const [wasteType, setWasteType] = useState("Illegal Dumping");
+  const [description, setDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const submitReport = async () => {
+    const reportDescription = description.trim();
+    if (!reportDescription) {
+      Alert.alert("Description required", "Please describe the dumping site.");
+      return;
+    }
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      await createReport({
+        description: reportDescription,
+        wasteType,
+      });
+      Alert.alert(
+        "Report submitted",
+        "Your dumping-site report has been saved for review.",
+        [{ text: "OK", onPress: () => router.replace("/sites") }],
+      );
+    } catch (error) {
+      Alert.alert(
+        "Report not submitted",
+        getApiErrorMessage(error, "Please try again."),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -61,6 +94,8 @@ export default function Location(): JSX.Element {
           <Text style={styles.sectionTitle}>Description</Text>
 
           <TextInput
+            value={description}
+            onChangeText={setDescription}
             style={styles.descriptionBox}
             placeholder="Describe the size of the dumping site, type of waste and any hazards"
             placeholderTextColor="#7A817C"
@@ -111,7 +146,7 @@ export default function Location(): JSX.Element {
                 styles.wasteOption,
                 wasteType === "Illegal Dumping" && styles.selectedWaste,
               ]}
-              onPress={() => router.push("/previewcampaign")}
+              onPress={() => setWasteType("Illegal Dumping")}
             >
               <Text
                 style={[
@@ -127,9 +162,13 @@ export default function Location(): JSX.Element {
           {/* SUBMIT BUTTON */}
           <Pressable
             style={styles.submitButton}
-            onPress={() => router.push("/sites")}
+            onPress={submitReport}
+            disabled={isSubmitting}
+            accessibilityRole="button"
           >
-            <Text style={styles.submitButtonText}>Submit Report</Text>
+            <Text style={styles.submitButtonText}>
+              {isSubmitting ? "Submitting..." : "Submit Report"}
+            </Text>
           </Pressable>
 
           {/* NOTIFICATION */}
@@ -151,14 +190,12 @@ export default function Location(): JSX.Element {
             onPress={() => router.push("/news")}
             accessibilityLabel="View News"
           >
-            <view>
               {" "}
               <FontAwesomeIcon
                 icon={faNewspaper}
                 size={20}
                 color="#124A2A"
               />{" "}
-            </view>
           </Pressable>
 
           <Pressable

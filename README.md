@@ -16,6 +16,44 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+## Firebase write API
+
+The Firebase Cloud Function in `functions/` exposes authenticated POST endpoints.
+Enable Firestore for the `cleanmystreetapp` Firebase project and deploy the
+function with the Firebase CLI:
+
+```bash
+npm --prefix functions install
+firebase deploy --project cleanmystreetapp --only functions
+```
+
+The app sends the signed-in user's Firebase ID token as a bearer token. Set
+`EXPO_PUBLIC_API_URL` to the deployed function URL if the function is hosted in
+a different project or region. The default is
+`https://us-central1-cleanmystreetapp.cloudfunctions.net/api`.
+
+| Endpoint | JSON body | Firestore destination |
+| --- | --- | --- |
+| `POST /reports` | `{ "description": "...", "latitude": -29.86, "longitude": 31.01, "imageUrl": "https://..." }` | `reports/{reportId}` |
+| `POST /community/posts` | `{ "body": "...", "category": "Cleanup" }` | `communityPosts/{postId}` |
+| `POST /campaigns/{campaignId}/contributions` | `{ "amount": 100 }` | `campaigns/{campaignId}/contributions/{contributionId}` |
+
+Report coordinates and image URL are optional; when supplied, latitude and
+longitude must be provided together. Community categories are `Cleanup`,
+`Tips`, or `Question`. Contributions are recorded as whole-ZAR pledges only;
+this endpoint does not process payments or store payment details. Requests
+require authentication and return `400` for invalid input, `401` when
+unauthenticated, and `404` when the campaign does not exist.
+
+The featured campaign screen submits pledges for the Firestore document
+`campaigns/musgrave-road-cleanup`; create that document before using the
+contribution form. The report form currently submits its description and waste
+type; GPS coordinates and photos are not included because the current screens
+do not yet collect those values.
+
+The client helpers are exported from `src/services/api.ts`. Community post,
+report, and contribution forms all call their corresponding endpoint.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

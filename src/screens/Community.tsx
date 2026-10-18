@@ -13,6 +13,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
 import { JSX, useMemo, useState } from "react";
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { createCommunityPost } from "../services/api";
 
 type Category = "Cleanup" | "Tips" | "Question";
 type Filter = "All" | Category;
@@ -114,6 +116,7 @@ export default function Community(): JSX.Element {
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
   const [posts, setPosts] = useState(starterPosts);
   const [draft, setDraft] = useState("");
+  const [isPublishing, setIsPublishing] = useState(false);
   const [postCategory, setPostCategory] = useState<Category>("Cleanup");
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -127,22 +130,45 @@ export default function Community(): JSX.Element {
     [activeFilter, posts],
   );
 
-  const publishPost = () => {
+  const publishPost = async () => {
     const body = draft.trim();
-    if (!body) return;
-    const nextPost: CommunityPost = {
-      id: `${Date.now()}`,
-      name: "Mikasi Inc",
-      initials: "MI",
-      time: "Just now",
-      category: postCategory,
-      body,
-      likes: 0,
-      comments: [],
-    };
-    setPosts((current) => [nextPost, ...current]);
-    setDraft("");
-    setActiveFilter("All");
+    if (!body || isPublishing) return;
+
+    setIsPublishing(true);
+    try {
+      const savedPost = await createCommunityPost({
+        body,
+        category: postCategory,
+      });
+      const name = savedPost.authorName;
+      const nextPost: CommunityPost = {
+        id: savedPost.id,
+        name,
+        initials: name
+          .split(/\s+/)
+          .map((part) => part[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase(),
+        time: "Just now",
+        category: savedPost.category,
+        body: savedPost.body,
+        likes: savedPost.likes,
+        comments: [],
+      };
+      setPosts((current) => [nextPost, ...current]);
+      setDraft("");
+      setActiveFilter("All");
+    } catch (error) {
+      Alert.alert(
+        "Post not published",
+        error instanceof Error
+          ? error.message
+          : "The post could not be saved. Please try again.",
+      );
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   const toggleLike = (postId: string) => {
@@ -318,9 +344,11 @@ export default function Community(): JSX.Element {
                   </Pressable>
                   <Pressable
                     onPress={publishPost}
+                    disabled={!draft.trim() || isPublishing}
                     style={[
                       styles.postButton,
-                      !draft.trim() && styles.postButtonDisabled,
+                      (!draft.trim() || isPublishing) &&
+                        styles.postButtonDisabled,
                     ]}
                     accessibilityRole="button"
                     accessibilityLabel="Publish post"
