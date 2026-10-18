@@ -1,20 +1,21 @@
 import {
-    faBookmark,
-    faClock,
-    faComments,
-    faCreditCard,
-    faGear,
-    faHome,
-    faNewspaper,
-    faRightFromBracket,
-    faShieldHalved,
-    faUser
+  faBookmark,
+  faClock,
+  faComments,
+  faCreditCard,
+  faGear,
+  faHome,
+  faNewspaper,
+  faRightFromBracket,
+  faShieldHalved,
+  faUser
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
 import { JSX } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { auth } from "../services/firebase";
 
 type ProfileRowProps = {
   icon: typeof faClock;
@@ -24,6 +25,18 @@ type ProfileRowProps = {
 
 export default function Profile(): JSX.Element {
   const router = useRouter();
+  const user = auth.currentUser;
+  const profileName =
+    user?.displayName?.trim() || user?.email?.split("@")[0] || "User";
+  const profileEmail = user?.email || "No email available";
+  const avatarInitials =
+    profileName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "U";
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -49,11 +62,11 @@ export default function Profile(): JSX.Element {
 
           <View style={styles.profileSummary}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>MI</Text>
+              <Text style={styles.avatarText}>{avatarInitials}</Text>
             </View>
             <View style={styles.profileDetails}>
-              <Text style={styles.profileName}>Mikasi Inc</Text>
-              <Text style={styles.profileEmail}>mikasi@gmail.com</Text>
+              <Text style={styles.profileName}>{profileName}</Text>
+              <Text style={styles.profileEmail}>{profileEmail}</Text>
             </View>
             <Pressable
               style={styles.editButton}
@@ -94,7 +107,7 @@ export default function Profile(): JSX.Element {
           <ProfileRow
             icon={faRightFromBracket}
             label="Log out"
-            onPress={() => router.push('/')}
+            onPress={() => router.replace('/')}
           />
         </ScrollView>
 
