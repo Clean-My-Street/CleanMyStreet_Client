@@ -1,4 +1,3 @@
-// authentication service for handling user login, logout, and token management
 
 import {
     createUserWithEmailAndPassword,
@@ -7,7 +6,13 @@ import {
     updateProfile,
 } from "firebase/auth";
 
-import { auth } from "./firebase";
+import {
+    doc,
+    serverTimestamp,
+    setDoc,
+} from "firebase/firestore";
+
+import { auth, db } from "./firebase";
 
 // Register a new user
 export async function registerWithEmail(
@@ -15,18 +20,38 @@ export async function registerWithEmail(
   email: string,
   password: string
 ) {
+  const trimmedName = fullName.trim();
+  const trimmedEmail = email.trim().toLowerCase();
+
+  // 1. Create the account in Firebase Authentication
   const userCredential = await createUserWithEmailAndPassword(
     auth,
-    email.trim(),
+    trimmedEmail,
     password
   );
 
-  // Save the user's name in their Firebase Authentication profile.
-  await updateProfile(userCredential.user, {
-    displayName: fullName.trim(),
+  const user = userCredential.user;
+
+  // 2. Save the user's name in Firebase Authentication
+  await updateProfile(user, {
+    displayName: trimmedName,
   });
 
-  return userCredential.user;
+  // 3. Create the user's profile document in Firestore
+  const userRef = doc(db, "users", user.uid);
+
+  await setDoc(userRef, {
+    uid: user.uid,
+    fullName: trimmedName,
+    email: trimmedEmail,
+    phoneNumber: "",
+    bio: "",
+    profilePictureUrl: null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return user;
 }
 
 // Log in an existing user

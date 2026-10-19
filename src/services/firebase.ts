@@ -1,10 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
 import type { Auth } from "firebase/auth";
-import {
-    getAuth,
-    initializeAuth,
-} from "firebase/auth";
+import { getAuth, initializeAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // @ts-expect-error Firebase React Native export is missing from some type declarations
 import { getReactNativePersistence } from "firebase/auth";
@@ -33,5 +32,8 @@ try {
   auth = getAuth(app);
 }
 
-export { app, auth };
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+export { app, auth, db, storage };
 
