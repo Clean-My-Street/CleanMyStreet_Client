@@ -1,4 +1,4 @@
-import { faBell, faComments, faHome, faNewspaper, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faBell, faHome, faNewspaper, faUser } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -48,33 +48,46 @@ export default function Home(): JSX.Element {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 2 }}
+            >
               <View style={styles.logoMark}>
-                <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
+                <Image
+                  source={require("../../assets/images/cleanmystreet.png")}
+                  style={styles.logo}
+                />
               </View>
               <Text style={styles.brandName}>CleanMyStreetZA</Text>
             </View>
 
             <View>
-              <Pressable onPress={() => router.push('/notifications')} accessibilityLabel="Open notifications">
+              <Pressable
+                onPress={() => router.push("/notifications")}
+                accessibilityLabel="Open notifications"
+              >
                 <FontAwesomeIcon icon={faBell} size={20} color="#36B86B" />
               </Pressable>
             </View>
-
           </View>
 
           <View style={styles.welcomeCard}>
-            <Text style={styles.welcomeText}>Reshaping communities, Restoring Value</Text>
+            <Text style={styles.welcomeText}>
+              Reshaping communities, Restoring Value
+            </Text>
           </View>
-
-
 
           <Text style={styles.sectionTitle}>Nearby Dumping Sites</Text>
           <View style={styles.sectionCard}>
             <View style={styles.artworkPlaceholder}>
-              <Image source={require('../../assets/images/dumpingsite.jpeg')} style={styles.dumpingSiteImage} />
+              <Image
+                source={require("../../assets/images/dumpingsite.jpeg")}
+                style={styles.dumpingSiteImage}
+              />
             </View>
             <SiteRow name="Musgrave Rd" distance="0.8 km" />
             <SiteRow name="Sydenham Rd" distance="1.4 km" />
@@ -92,10 +105,18 @@ export default function Home(): JSX.Element {
               <Text style={styles.metaText}>65%</Text>
             </View>
             <View style={styles.campaignActions}>
-              <Pressable style={[styles.campaignButton, styles.primaryButton]} onPress={() => { router.push('/previewcampaign') }}>
+              <Pressable
+                style={[styles.campaignButton, styles.primaryButton]}
+                onPress={() => {
+                  router.push("/previewcampaign");
+                }}
+              >
                 <Text style={styles.primaryButtonText}>Contribute</Text>
               </Pressable>
-              <Pressable style={[styles.campaignButton, styles.shareButton]} onPress={() => { }}>
+              <Pressable
+                style={[styles.campaignButton, styles.shareButton]}
+                onPress={() => {}}
+              >
                 <Text style={styles.secondaryButtonText}>Share</Text>
               </Pressable>
             </View>
@@ -111,10 +132,16 @@ export default function Home(): JSX.Element {
               <Text style={styles.metaText}>65%</Text>
             </View>
             <View style={styles.campaignActions}>
-              <Pressable style={[styles.campaignButton, styles.primaryButton]} onPress={() => { }}>
+              <Pressable
+                style={[styles.campaignButton, styles.primaryButton]}
+                onPress={() => {}}
+              >
                 <Text style={styles.primaryButtonText}>Contribute</Text>
               </Pressable>
-              <Pressable style={[styles.campaignButton, styles.shareButton]} onPress={() => { }}>
+              <Pressable
+                style={[styles.campaignButton, styles.shareButton]}
+                onPress={() => {}}
+              >
                 <Text style={styles.secondaryButtonText}>Share</Text>
               </Pressable>
             </View>
@@ -130,10 +157,16 @@ export default function Home(): JSX.Element {
               <Text style={styles.metaText}>65%</Text>
             </View>
             <View style={styles.campaignActions}>
-              <Pressable style={[styles.campaignButton, styles.primaryButton]} onPress={() => { }}>
+              <Pressable
+                style={[styles.campaignButton, styles.primaryButton]}
+                onPress={() => {}}
+              >
                 <Text style={styles.primaryButtonText}>Contribute</Text>
               </Pressable>
-              <Pressable style={[styles.campaignButton, styles.shareButton]} onPress={() => { }}>
+              <Pressable
+                style={[styles.campaignButton, styles.shareButton]}
+                onPress={() => {}}
+              >
                 <Text style={styles.secondaryButtonText}>Share</Text>
               </Pressable>
             </View>
@@ -141,19 +174,30 @@ export default function Home(): JSX.Element {
         </ScrollView>
 
         <View style={styles.bottomNav}>
-          <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
+          <Pressable
+            onPress={() => router.push("/home")}
+            accessibilityLabel="Go to Home"
+          >
             <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
           </Pressable>
-          <Pressable onPress={() => router.push('/news')} accessibilityLabel="View News" >
+          <Pressable
+            onPress={() => router.push("/news")}
+            accessibilityLabel="View News"
+          >
             <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
           </Pressable>
 
-
-          <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
+          <Pressable
+            style={styles.addButton}
+            onPress={() => router.push("/reportdumping")}
+          >
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
-          <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages">
-            <FontAwesomeIcon icon={faComments} size={20} color="#124A2A" />
+          <Pressable
+            onPress={() => router.push("/community")}
+            accessibilityLabel="Open community messages"
+          >
+            <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
           </Pressable>
            <Pressable
               onPress={() => router.push('/profile')}
@@ -179,7 +223,13 @@ export default function Home(): JSX.Element {
   );
 }
 
-function SiteRow({ name, distance }: { name: string; distance: string }): JSX.Element {
+function SiteRow({
+  name,
+  distance,
+}: {
+  name: string;
+  distance: string;
+}): JSX.Element {
   return (
     <View style={styles.siteRow}>
       <Text style={styles.siteName}>{name}</Text>
@@ -198,23 +248,37 @@ function Advertisement(): JSX.Element {
         <Text style={styles.advertisementBrandName}>CleanMyStreetZA</Text>
       </View>
       <Text style={styles.advertisementTitle}>Advertise Here</Text>
-      <Text style={styles.advertisementEmail}>Email: Ads@cleanmystreet.com</Text>
+      <Text style={styles.advertisementEmail}>
+        Email: Ads@cleanmystreet.com
+      </Text>
     </View>
   );
 }
 
-function NavItem({ icon, label, active = false }: { icon: string; label: string; active?: boolean }): JSX.Element {
+function NavItem({
+  icon,
+  label,
+  active = false,
+}: {
+  icon: string;
+  label: string;
+  active?: boolean;
+}): JSX.Element {
   return (
-    <Pressable style={styles.navItem} onPress={() => { }}>
-      <Text style={[styles.navIcon, active && styles.activeNavText]}>{icon}</Text>
-      <Text style={[styles.navLabel, active && styles.activeNavText]}>{label}</Text>
+    <Pressable style={styles.navItem} onPress={() => {}}>
+      <Text style={[styles.navIcon, active && styles.activeNavText]}>
+        {icon}
+      </Text>
+      <Text style={[styles.navLabel, active && styles.activeNavText]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  screen: { flex: 1, backgroundColor: '#FFFFFF' },
+  safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
+  screen: { flex: 1, backgroundColor: "#FFFFFF" },
   content: { padding: 16, paddingBottom: 24 },
   header: { height: 48, flexDirection: 'row', alignItems: 'center', marginBottom: 12, justifyContent: 'space-between' },
   backIcon: { color: '#17201A', fontSize: 32, lineHeight: 32, marginRight: 8 },

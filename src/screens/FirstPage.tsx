@@ -1,4 +1,6 @@
 import { router } from 'expo-router';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { JSX, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,6 +28,8 @@ export function FirstPage(): JSX.Element {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { width } = useWindowDimensions();
@@ -60,6 +64,14 @@ export function FirstPage(): JSX.Element {
         Alert.alert(
           'Password too short',
           'Your password must contain at least 6 characters.'
+        );
+        return;
+      }
+
+      if (!confirmPassword) {
+        Alert.alert(
+          'Missing confirmation',
+          'Please enter your password again to confirm it.'
         );
         return;
       }
@@ -210,7 +222,11 @@ export function FirstPage(): JSX.Element {
                   : styles.inactiveLoginButton,
               ]}
               disabled={isSubmitting}
-              onPress={() => setIsCreatingAccount(false)}
+              onPress={() => {
+                setIsCreatingAccount(false);
+                setIsPasswordVisible(false);
+                setIsConfirmPasswordVisible(false);
+              }}
             >
               <Text
                 style={[
@@ -228,7 +244,11 @@ export function FirstPage(): JSX.Element {
                 isCreatingAccount && styles.selectedCreateButton,
               ]}
               disabled={isSubmitting}
-              onPress={() => setIsCreatingAccount(true)}
+              onPress={() => {
+                setIsCreatingAccount(true);
+                setIsPasswordVisible(false);
+                setIsConfirmPasswordVisible(false);
+              }}
             >
               <Text
                 style={[
@@ -273,31 +293,72 @@ export function FirstPage(): JSX.Element {
 
             <Text style={styles.inputText}>Password:</Text>
 
-            <TextInput
-              style={styles.inputStyles}
-              placeholder="Enter your password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete={isCreatingAccount ? 'new-password' : 'current-password'}
-              editable={!isSubmitting}
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!isPasswordVisible}
+                autoCapitalize="none"
+                autoComplete={isCreatingAccount ? 'new-password' : 'current-password'}
+                editable={!isSubmitting}
+              />
+              <TouchableOpacity
+                style={styles.passwordVisibilityButton}
+                onPress={() => setIsPasswordVisible((visible) => !visible)}
+                disabled={isSubmitting}
+                accessibilityRole="button"
+                accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
+                accessibilityHint="Toggles password visibility"
+                accessibilityState={{ selected: isPasswordVisible, disabled: isSubmitting }}
+              >
+                <FontAwesomeIcon
+                  icon={isPasswordVisible ? faEyeSlash : faEye}
+                  size={18}
+                  color="#68706A"
+                />
+              </TouchableOpacity>
+            </View>
 
             {isCreatingAccount && (
               <>
                 <Text style={styles.inputText}>Confirm Password:</Text>
 
-                <TextInput
-                  style={styles.inputStyles}
-                  placeholder="Repeat your password"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                  autoComplete="new-password"
-                  editable={!isSubmitting}
-                />
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Repeat your password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!isConfirmPasswordVisible}
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    editable={!isSubmitting}
+                  />
+                  <TouchableOpacity
+                    style={styles.passwordVisibilityButton}
+                    onPress={() => setIsConfirmPasswordVisible((visible) => !visible)}
+                    disabled={isSubmitting}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      isConfirmPasswordVisible
+                        ? 'Hide confirm password'
+                        : 'Show confirm password'
+                    }
+                    accessibilityHint="Toggles password visibility"
+                    accessibilityState={{
+                      selected: isConfirmPasswordVisible,
+                      disabled: isSubmitting,
+                    }}
+                  >
+                    <FontAwesomeIcon
+                      icon={isConfirmPasswordVisible ? faEyeSlash : faEye}
+                      size={18}
+                      color="#68706A"
+                    />
+                  </TouchableOpacity>
+                </View>
               </>
             )}
           </View>
@@ -405,6 +466,27 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     color: '#17201A',
     backgroundColor: '#FFFFFF',
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
+    borderRadius: 5,
+    marginBottom: 15,
+    backgroundColor: '#FFFFFF',
+  },
+  passwordInput: {
+    flex: 1,
+    minWidth: 0,
+    padding: 12,
+    color: '#17201A',
+    backgroundColor: 'transparent',
+  },
+  passwordVisibilityButton: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
   },
   inputText: {
     fontSize: 16,

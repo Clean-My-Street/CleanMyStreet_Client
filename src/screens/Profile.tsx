@@ -1,20 +1,28 @@
 import {
-    faBookmark,
-    faClock,
-    faComments,
-    faCreditCard,
-    faGear,
-    faHome,
-    faNewspaper,
-    faRightFromBracket,
-    faShieldHalved,
-    faUser
+  faBookmark,
+  faClock,
+  faCreditCard,
+  faGear,
+  faHome,
+  faNewspaper,
+  faRightFromBracket,
+  faShieldHalved,
+  faUser,
+  faUsers
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
 import { JSX } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { auth } from "../services/firebase";
 
 type ProfileRowProps = {
   icon: typeof faClock;
@@ -24,6 +32,18 @@ type ProfileRowProps = {
 
 export default function Profile(): JSX.Element {
   const router = useRouter();
+  const user = auth.currentUser;
+  const profileName =
+    user?.displayName?.trim() || user?.email?.split("@")[0] || "User";
+  const profileEmail = user?.email || "No email available";
+  const avatarInitials =
+    profileName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "U";
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -34,26 +54,26 @@ export default function Profile(): JSX.Element {
         >
           <View style={styles.header}>
             <Pressable onPress={() => router.back()}>
-                   <Text style={styles.backIcon}>‹</Text>
-            </Pressable> 
+              <Text style={styles.backIcon}>‹</Text>
+            </Pressable>
 
-          
             <View style={styles.logoMark}>
-              <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
+              <Image
+                source={require("../../assets/images/cleanmystreet.png")}
+                style={styles.logo}
+              />
             </View>
-
-
 
             <Text style={styles.headerTitle}>Profile</Text>
           </View>
 
           <View style={styles.profileSummary}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>MI</Text>
+              <Text style={styles.avatarText}>{avatarInitials}</Text>
             </View>
             <View style={styles.profileDetails}>
-              <Text style={styles.profileName}>Mikasi Inc</Text>
-              <Text style={styles.profileEmail}>mikasi@gmail.com</Text>
+              <Text style={styles.profileName}>{profileName}</Text>
+              <Text style={styles.profileEmail}>{profileEmail}</Text>
             </View>
             <Pressable
               style={styles.editButton}
@@ -69,54 +89,76 @@ export default function Profile(): JSX.Element {
           </View>
 
           <ProfileSection title="Account">
-            <ProfileRow icon={faClock} label="My Activity" onPress={() => router.push('/myactivity')} />
+            <ProfileRow
+              icon={faClock}
+              label="My Activity"
+              onPress={() => router.push("/myactivity")}
+            />
             <ProfileRow
               icon={faBookmark}
               label="Saved Items"
-              onPress={() => router.push('/saveditems')}
+              onPress={() => router.push("/saveditems")}
             />
             <ProfileRow
               icon={faCreditCard}
               label="Payment Methods"
-              onPress={() => router.push('/paymentmethods')}
+              onPress={() => router.push("/paymentmethods")}
             />
           </ProfileSection>
 
           <ProfileSection title="Settings">
-            <ProfileRow icon={faGear} label="Settings" onPress={() => router.push('/settings')} />
+            <ProfileRow
+              icon={faGear}
+              label="Settings"
+              onPress={() => router.push("/settings")}
+            />
             <ProfileRow
               icon={faShieldHalved}
               label="Privacy & Security"
-              onPress={() => router.push('/privacysecurity')}
+              onPress={() => router.push("/privacysecurity")}
             />
           </ProfileSection>
 
           <ProfileRow
             icon={faRightFromBracket}
             label="Log out"
-            onPress={() => router.push('/')}
+            onPress={() => router.replace('/')}
           />
         </ScrollView>
 
-             <View style={styles.bottomNav}>
-                   <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
-                       <FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
-                   </Pressable>
-                  <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" >
-                    <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
-                  </Pressable>
-       
-       
-                 <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')}>
-                   <Text style={styles.addButtonText}>+</Text>
-                 </Pressable>
-                 <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages">
-                   <FontAwesomeIcon icon={faComments} size={20} color="#124A2A"/>
-                 </Pressable>
-                 <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
-                   <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
-                 </Pressable>
-               </View>
+        <View style={styles.bottomNav}>
+          <Pressable
+            onPress={() => router.push("/home")}
+            accessibilityLabel="Go to Home"
+          >
+            <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/news")}
+            accessibilityLabel="View News"
+          >
+            <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
+          </Pressable>
+
+          <Pressable
+            style={styles.addButton}
+            onPress={() => router.push("/reportdumping")}
+          >
+            <Text style={styles.addButtonText}>+</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/community")}
+            accessibilityLabel="Open community messages"
+          >
+            <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/profile")}
+            accessibilityLabel="View profile"
+          >
+            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -158,8 +200,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#FFFFFF" },
   content: { paddingHorizontal: 16, paddingBottom: 24 },
   header: { height: 52, flexDirection: "row", alignItems: "center" },
-    backIcon: {
-    color: '#17201A',
+  backIcon: {
+    color: "#17201A",
     fontSize: 32,
     lineHeight: 32,
     marginRight: 8,
@@ -174,10 +216,7 @@ const styles = StyleSheet.create({
     marginLeft: 13,
   },
   logoText: { color: "#FFFFFF", fontSize: 8, fontWeight: "800" },
-  logo: { width: 25,
-    height: 25, 
-    resizeMode: 'contain' 
-  },
+  logo: { width: 25, height: 25, resizeMode: "contain" },
 
   headerTitle: { color: "#17201A", fontSize: 12, marginLeft: 7 },
   profileSummary: { flexDirection: "row", alignItems: "center", marginTop: 16 },

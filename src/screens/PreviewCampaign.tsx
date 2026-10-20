@@ -1,34 +1,66 @@
-import { faComments, faHome, faNewspaper, faUser } from "@fortawesome/free-solid-svg-icons";
+import {
+  faHome,
+  faNewspaper,
+  faUser,
+  faUsers
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
-import { router } from 'expo-router';
-import { JSX } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from "expo-router";
+import { JSX } from "react";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PreviewCampaign(): JSX.Element {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
-            <Pressable onPress={() => router.back()} accessibilityLabel="Go back">
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityLabel="Go back"
+            >
               <Text style={styles.backIcon}>‹</Text>
             </Pressable>
-           
-           
-                       <View style={styles.logoMark}>
-                         <Image source={require('../../assets/images/cleanmystreet.png')} style={styles.logo} />
-                       </View>
 
+            <View style={styles.logoMark}>
+              <Image
+                source={require("../../assets/images/cleanmystreet.png")}
+                style={styles.logo}
+              />
+            </View>
 
-            <Text style={styles.headerTitle}>Musgrave Road, near Botanic Gardens</Text>
+            <Text style={styles.headerTitle}>
+              Musgrave Road, near Botanic Gardens
+            </Text>
           </View>
 
           <View style={styles.photoPlaceholder}>
-            <Image source={require('../../assets/images/dumpingsite.jpeg')} style={styles.dumpingSiteImage} />
-            <Pressable style={styles.viewCampaignButton} onPress={() => { router.push('/viewcampaign') }} accessibilityLabel="View Campaign">
+            <Image
+              source={require("../../assets/images/dumpingsite.jpeg")}
+              style={styles.dumpingSiteImage}
+            />
+            <Pressable
+              style={styles.viewCampaignButton}
+              onPress={() => {
+                router.push("/viewcampaign");
+              }}
+              accessibilityLabel="View Campaign"
+            >
               <Text style={styles.viewCampaignText}>View Campaign</Text>
-              <Text style={styles.coordinates}>GPS: -29.8587° S, 31.0283° E</Text>
+              <Text style={styles.coordinates}>
+                GPS: -29.8587° S, 31.0283° E
+              </Text>
             </Pressable>
           </View>
 
@@ -39,10 +71,14 @@ export default function PreviewCampaign(): JSX.Element {
 
             <Text style={styles.sectionLabel}>Description</Text>
             <Text style={styles.description}>
-              Large illegal dumping site along Musgrave Road near the Botanic Gardens entrance. Mostly household waste and some garden refuse, roughly 15 square metres, spilling onto the pavement.
+              Large illegal dumping site along Musgrave Road near the Botanic
+              Gardens entrance. Mostly household waste and some garden refuse,
+              roughly 15 square metres, spilling onto the pavement.
             </Text>
 
-            <Text style={[styles.sectionLabel, styles.updatesHeading]}>Updates</Text>
+            <Text style={[styles.sectionLabel, styles.updatesHeading]}>
+              Updates
+            </Text>
             <Update text="Report verified by moderator" />
             <Update text="Cleanup campaign created" />
             <Update text="65% of funding goal reached" />
@@ -50,21 +86,42 @@ export default function PreviewCampaign(): JSX.Element {
         </ScrollView>
 
         <View style={styles.bottomNav}>
-                    <Pressable onPress={() => router.push('/home')} accessibilityLabel="Go to Home">
-                        <FontAwesomeIcon icon={faHome} size={20} color="#124A2A"/>
-                    </Pressable>
-                  <Pressable  onPress={()=> router.push('/news')} accessibilityLabel="View News" ><view> <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" /> </view></Pressable>
-                  <Pressable style={styles.addButton} onPress={() => {}}>
-                    <Text style={styles.addButtonText}>+</Text>
-                  </Pressable>
-                  <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages">
-                    <FontAwesomeIcon icon={faComments} size={20} color="#124A2A"/>
-                  </Pressable>
-                  <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile">
-                    <FontAwesomeIcon icon={faUser} size={20} color="#124A2A"/>
-                  </Pressable>
-                </View>
-              </View>
+          <Pressable
+            onPress={() => router.push("/home")}
+            accessibilityLabel="Go to Home"
+          >
+            <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/news")}
+            accessibilityLabel="View News"
+          >
+            <view>
+              {" "}
+              <FontAwesomeIcon
+                icon={faNewspaper}
+                size={20}
+                color="#124A2A"
+              />{" "}
+            </view>
+          </Pressable>
+          <Pressable style={styles.addButton} onPress={() => {}}>
+            <Text style={styles.addButtonText}>+</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/community")}
+            accessibilityLabel="Open community messages"
+          >
+            <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/profile")}
+            accessibilityLabel="View profile"
+          >
+            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
+          </Pressable>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -78,7 +135,15 @@ function Update({ text }: { text: string }): JSX.Element {
   );
 }
 
-function NavItem({ icon, label, onPress }: { icon: string; label: string; onPress?: () => void }): JSX.Element {
+function NavItem({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: string;
+  label: string;
+  onPress?: () => void;
+}): JSX.Element {
   return (
     <Pressable style={styles.navItem} onPress={onPress}>
       <Text style={styles.navIcon}>{icon}</Text>
@@ -88,36 +153,109 @@ function NavItem({ icon, label, onPress }: { icon: string; label: string; onPres
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
-  screen: { flex: 1, backgroundColor: '#FFFFFF' },
+  safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
+  screen: { flex: 1, backgroundColor: "#FFFFFF" },
   content: { paddingBottom: 20 },
-  header: { height: 48, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' },
-  backIcon: { color: '#17201A', fontSize: 32, lineHeight: 32, marginRight: 6 },
-  logoMark: { width: 25, height: 25, borderRadius: 13, backgroundColor: '#36B86B', alignItems: 'center', justifyContent: 'center' },
-  logoText: { color: '#FFFFFF', fontSize: 8, fontWeight: '800' },
-  logo: { width: 25,
-   height: 25, 
-    resizeMode: 'contain' 
+  header: {
+    height: 48,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  headerTitle: { flex: 1, color: '#17201A', fontSize: 10, marginLeft: 7 },
-  photoPlaceholder: { height: 285, backgroundColor: '#7D927C', position: 'relative', overflow: 'hidden' },
-  dumpingSiteImage: { width: '100%', height: '100%', borderRadius: 6, resizeMode: 'cover' },
-  viewCampaignButton: { position: 'absolute', top: 12, right: 8, width: 112, minHeight: 42, padding: 8, borderRadius: 7, backgroundColor: '#36B86B' },
-  viewCampaignText: { color: '#17201A', fontSize: 11, fontWeight: '700' },
-  coordinates: { color: '#17201A', fontSize: 7, marginTop: 3 },
+  backIcon: { color: "#17201A", fontSize: 32, lineHeight: 32, marginRight: 6 },
+  logoMark: {
+    width: 25,
+    height: 25,
+    borderRadius: 13,
+    backgroundColor: "#36B86B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoText: { color: "#FFFFFF", fontSize: 8, fontWeight: "800" },
+  logo: { width: 25, height: 25, resizeMode: "contain" },
+  headerTitle: { flex: 1, color: "#17201A", fontSize: 10, marginLeft: 7 },
+  photoPlaceholder: {
+    height: 285,
+    backgroundColor: "#7D927C",
+    position: "relative",
+    overflow: "hidden",
+  },
+  dumpingSiteImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 6,
+    resizeMode: "cover",
+  },
+  viewCampaignButton: {
+    position: "absolute",
+    top: 12,
+    right: 8,
+    width: 112,
+    minHeight: 42,
+    padding: 8,
+    borderRadius: 7,
+    backgroundColor: "#36B86B",
+  },
+  viewCampaignText: { color: "#17201A", fontSize: 11, fontWeight: "700" },
+  coordinates: { color: "#17201A", fontSize: 7, marginTop: 3 },
   details: { paddingHorizontal: 14, paddingTop: 10 },
-  statusPill: { alignSelf: 'flex-start', borderRadius: 10, backgroundColor: '#E1F5E9', paddingHorizontal: 9, paddingVertical: 5, marginBottom: 5 },
-  statusText: { color: '#36A965', fontSize: 9 },
-  sectionLabel: { color: '#17201A', fontSize: 10, marginTop: 2, marginBottom: 4 },
-  description: { color: '#17201A', fontSize: 10, lineHeight: 15 },
+  statusPill: {
+    alignSelf: "flex-start",
+    borderRadius: 10,
+    backgroundColor: "#E1F5E9",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    marginBottom: 5,
+  },
+  statusText: { color: "#36A965", fontSize: 9 },
+  sectionLabel: {
+    color: "#17201A",
+    fontSize: 10,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  description: { color: "#17201A", fontSize: 10, lineHeight: 15 },
   updatesHeading: { marginTop: 25 },
-  updateRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  updateDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#36B86B', marginRight: 9 },
-  updateText: { color: '#17201A', fontSize: 10 },
-  bottomNav: { minHeight: 68, borderTopWidth: 1, borderTopColor: '#E8E8E8', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 10 },
-  navItem: { minWidth: 48, alignItems: 'center', justifyContent: 'center' },
-  navIcon: { color: '#68706A', fontSize: 8, fontWeight: '800', marginBottom: 5 },
-  navLabel: { color: '#68706A', fontSize: 9 },
-  addButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: '#68706A', alignItems: 'center', justifyContent: 'center' },
-  addButtonText: { color: '#17201A', fontSize: 28, fontWeight: '300', lineHeight: 30 },
+  updateRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },
+  updateDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#36B86B",
+    marginRight: 9,
+  },
+  updateText: { color: "#17201A", fontSize: 10 },
+  bottomNav: {
+    minHeight: 68,
+    borderTopWidth: 1,
+    borderTopColor: "#E8E8E8",
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingHorizontal: 10,
+  },
+  navItem: { minWidth: 48, alignItems: "center", justifyContent: "center" },
+  navIcon: {
+    color: "#68706A",
+    fontSize: 8,
+    fontWeight: "800",
+    marginBottom: 5,
+  },
+  navLabel: { color: "#68706A", fontSize: 9 },
+  addButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: "#68706A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addButtonText: {
+    color: "#17201A",
+    fontSize: 28,
+    fontWeight: "300",
+    lineHeight: 30,
+  },
 });
