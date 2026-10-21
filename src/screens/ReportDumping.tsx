@@ -7,7 +7,7 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
-import { JSX, useState } from "react";
+import { JSX, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -23,22 +23,63 @@ import Svg, { Circle, Path } from "react-native-svg";
 export default function ReportDumping(): JSX.Element {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [isTakingPhoto, setIsTakingPhoto] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   const openCamera = async () => {
-    if (!permission?.granted) {
-      const result = await requestPermission();
+    try {
+      if (!permission?.granted) {
+        const result = await requestPermission();
 
-      if (!result.granted) {
-        Alert.alert(
-          "Camera Permission",
-          "Camera permission is required to take a photo of the dumping site.",
-        );
-        return;
+        if (!result.granted) {
+          Alert.alert(
+            "Camera Permission",
+            "Camera permission is required to take a photo of the dumping site.",
+          );
+          return;
+        }
       }
-    }
 
-    setCameraOpen(true);
+      setCameraReady(false);
+      setCameraOpen(true);
+    } catch (error) {
+      Alert.alert(
+        "Camera unavailable",
+        error instanceof Error ? error.message : "Could not open the camera.",
+      );
+    }
+  };
+
+  const takePhoto = async () => {
+    if (!cameraRef.current || !cameraReady || isTakingPhoto) return;
+
+    setIsTakingPhoto(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      if (!photo?.uri) {
+        throw new Error("The camera did not return a photo.");
+      }
+      setPhotoUri(photo.uri);
+      setCameraOpen(false);
+    } catch (error) {
+      Alert.alert(
+        "Photo not captured",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setIsTakingPhoto(false);
+    }
+  };
+
+  const continueToLocation = () => {
+    if (!photoUri) {
+      Alert.alert("Photo required", "Take a photo of the dumping site first.");
+      return;
+    }
+    router.push({ pathname: "/location", params: { photoUri } });
   };
 
   return (
@@ -79,13 +120,45 @@ export default function ReportDumping(): JSX.Element {
           <View style={styles.imageBox}>
             {cameraOpen ? (
               <View style={styles.cameraContainer}>
-                <CameraView style={styles.camera} />
+                <CameraView
+                  ref={cameraRef}
+                  style={styles.camera}
+                  facing="back"
+                  onCameraReady={() => setCameraReady(true)}
+                />
 
                 <Pressable
                   style={styles.closeCameraButton}
-                  onPress={() => setCameraOpen(false)}
+                  onPress={() => {
+                    setCameraOpen(false);
+                    setCameraReady(false);
+                  }}
                 >
                   <Text style={styles.closeCameraText}>Close Camera</Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.captureButton,
+                    (!cameraReady || isTakingPhoto) && styles.disabledButton,
+                  ]}
+                  onPress={takePhoto}
+                  disabled={!cameraReady || isTakingPhoto}
+                  accessibilityRole="button"
+                  accessibilityLabel="Take report photo"
+                >
+                  <Text style={styles.closeCameraText}>
+                    {isTakingPhoto ? "Capturing..." : "Take Photo"}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : photoUri ? (
+              <View style={styles.cameraContainer}>
+                <Image source={{ uri: photoUri }} style={styles.camera} />
+                <Pressable
+                  style={styles.closeCameraButton}
+                  onPress={() => setPhotoUri(null)}
+                >
+                  <Text style={styles.closeCameraText}>Retake Photo</Text>
                 </Pressable>
               </View>
             ) : (
@@ -117,7 +190,7 @@ export default function ReportDumping(): JSX.Element {
 
           <Pressable
             style={styles.nextButton}
-            onPress={() => router.push("/location")}
+            onPress={continueToLocation}
           >
             <Text style={styles.nextButtonText}>Next</Text>
           </Pressable>
@@ -288,12 +361,26 @@ const styles = StyleSheet.create({
 
   closeCameraButton: {
     position: "absolute",
-    bottom: 15,
+    bottom: 12,
     alignSelf: "center",
     backgroundColor: "#17201A",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 7,
+  },
+
+  captureButton: {
+    position: "absolute",
+    bottom: 58,
+    alignSelf: "center",
+    backgroundColor: "#1F7A3F",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 7,
+  },
+
+  disabledButton: {
+    opacity: 0.55,
   },
 
   closeCameraText: {

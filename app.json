@@ -37,7 +37,21 @@
       "expo-web-browser",
       "expo-asset",
       "expo-image",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow CleanMyStreet to use your location to locate a reported dumping site."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow CleanMyStreet to take a photo of a reported dumping site.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

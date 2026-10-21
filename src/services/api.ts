@@ -23,11 +23,13 @@ api.interceptors.request.use(async (config) => {
 export type CommunityPostCategory = 'Cleanup' | 'Tips' | 'Question';
 
 export type CreateReportInput = {
+  reportId: string;
   description: string;
-  latitude?: number;
-  longitude?: number;
-  imageUrl?: string;
-  wasteType?: string;
+  latitude: number;
+  longitude: number;
+  imageUrl: string;
+  imagePath: string;
+  wasteType: 'Household' | 'Construction' | 'Illegal Dumping';
 };
 
 export type CommunityPost = {
@@ -64,10 +66,11 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
 }
 
 export async function createReport(input: CreateReportInput) {
-  const response = await api.post<{ id: string; status: 'pending' }>(
-    '/reports',
-    input,
-  );
+  const response = await api.post<{
+    id: string;
+    status: 'pending_verification';
+    createdAt: string;
+  }>('/reports', input);
   return response.data;
 }
 

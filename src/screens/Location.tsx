@@ -5,11 +5,13 @@ import {
   faUsers
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
-import { useRouter } from "expo-router";
-import { JSX, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as ExpoLocation from "expo-location";
+import { JSX, useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,14 +19,104 @@ import {
   TextInput,
   View,
 } from "react-native";
+import MapView, { Marker, type MapPressEvent, type Region } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { createReport, getApiErrorMessage } from "../services/api";
+import { getApiErrorMessage } from "../services/api";
+import {
+  submitDumpingReport,
+  type WasteType,
+} from "../services/reportService";
+
+const DEFAULT_MAP_REGION: Region = {
+  latitude: -29.8587,
+  longitude: 31.0218,
+  latitudeDelta: 0.04,
+  longitudeDelta: 0.04,
+};
 
 export default function Location(): JSX.Element {
   const router = useRouter();
-  const [wasteType, setWasteType] = useState("Illegal Dumping");
+  const params = useLocalSearchParams<{ photoUri?: string }>();
+  const photoUri = typeof params.photoUri === "string" ? params.photoUri : "";
+  const mapRef = useRef<MapView | null>(null);
+  const hasManuallySelectedLocation = useRef(false);
+  const [wasteType, setWasteType] = useState<WasteType>("Illegal Dumping");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [coordinates, setCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
+
+  const moveMapTo = (latitude: number, longitude: number) => {
+    mapRef.current?.animateToRegion(
+      {
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      400,
+    );
+  };
+
+  const getCurrentLocation = useCallback(async () => {
+    setIsGettingLocation(true);
+    setLocationError(null);
+    hasManuallySelectedLocation.current = false;
+    try {
+      const permission = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        setHasLocationPermission(false);
+        throw new Error("Location permission is required to submit a report.");
+      }
+      setHasLocationPermission(true);
+
+      const position = await ExpoLocation.getCurrentPositionAsync({
+        accuracy: ExpoLocation.Accuracy.Balanced,
+      });
+      if (!hasManuallySelectedLocation.current) {
+        const nextCoordinates = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        setCoordinates(nextCoordinates);
+        moveMapTo(nextCoordinates.latitude, nextCoordinates.longitude);
+      }
+    } catch (error) {
+      setCoordinates(null);
+      setLocationError(
+        error instanceof Error
+          ? error.message
+          : "Could not retrieve your current location.",
+      );
+    } finally {
+      setIsGettingLocation(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void getCurrentLocation();
+  }, [getCurrentLocation]);
+
+  const selectMapLocation = ({ nativeEvent }: MapPressEvent) => {
+    hasManuallySelectedLocation.current = true;
+    setCoordinates(nativeEvent.coordinate);
+    setLocationError(null);
+  };
+
+  const moveSelectedMarker = ({
+    nativeEvent,
+  }: {
+    nativeEvent: { coordinate: { latitude: number; longitude: number } };
+  }) => {
+    hasManuallySelectedLocation.current = true;
+    setCoordinates(nativeEvent.coordinate);
+    setLocationError(null);
+  };
 
   const submitReport = async () => {
     const reportDescription = description.trim();
@@ -32,13 +124,30 @@ export default function Location(): JSX.Element {
       Alert.alert("Description required", "Please describe the dumping site.");
       return;
     }
+    if (!photoUri) {
+      Alert.alert(
+        "Photo required",
+        "Return to the previous screen and take a photo of the dumping site.",
+      );
+      return;
+    }
+    if (!coordinates) {
+      Alert.alert(
+        "Location required",
+        "Allow location access and retrieve your GPS location before submitting.",
+      );
+      return;
+    }
     if (isSubmitting) return;
 
     setIsSubmitting(true);
     try {
-      await createReport({
+      await submitDumpingReport({
         description: reportDescription,
         wasteType,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        photoUri,
       });
       Alert.alert(
         "Report submitted",
@@ -81,13 +190,76 @@ export default function Location(): JSX.Element {
           {/* LOCATION */}
           <Text style={styles.sectionTitle}>Location (GPS)</Text>
 
-          {/* MAP PLACEHOLDER */}
+          {/* MAP */}
           <View style={styles.mapBox}>
-            <Text style={styles.mapIcon}>⌖</Text>
-            <Text style={styles.mapText}>Map</Text>
-            <Text style={styles.mapSubText}>
-              Live location will appear here
-            </Text>
+            {Platform.OS === "web" ? (
+              <View style={styles.mapFallback}>
+                <Text style={styles.mapText}>Map is available in the mobile app</Text>
+                <Text style={styles.mapSubText}>
+                  {coordinates
+                    ? `${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}`
+                    : locationError ?? "Use your device location to set the report location."}
+                </Text>
+              </View>
+            ) : (
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                initialRegion={DEFAULT_MAP_REGION}
+                onPress={selectMapLocation}
+                showsUserLocation={hasLocationPermission}
+                showsMyLocationButton={false}
+                toolbarEnabled
+                accessibilityLabel="Select dumping site location on map"
+              >
+                {coordinates && (
+                  <Marker
+                    coordinate={coordinates}
+                    title="Dumping site location"
+                    description="Drag the marker or tap the map to adjust."
+                    draggable
+                    onDragEnd={moveSelectedMarker}
+                  />
+                )}
+              </MapView>
+            )}
+            <View pointerEvents="none" style={styles.mapInstruction}>
+              <Text style={styles.mapInstructionText}>
+                {coordinates
+                  ? "Tap map or drag pin to adjust location"
+                  : isGettingLocation
+                    ? "Finding your location..."
+                    : "Tap map to select the dumping site"}
+              </Text>
+            </View>
+            <View style={styles.coordinatesCard}>
+              <Text style={styles.mapText}>
+                {coordinates
+                  ? "Report location"
+                  : isGettingLocation
+                    ? "Getting location..."
+                    : "Location needed"}
+              </Text>
+              <Text style={styles.mapSubText}>
+                {coordinates
+                  ? `${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}`
+                  : locationError ?? "Your GPS location is required."}
+              </Text>
+            </View>
+            <Pressable
+              style={styles.locationButton}
+              onPress={() => void getCurrentLocation()}
+              disabled={isGettingLocation}
+              accessibilityRole="button"
+            >
+              <Text style={styles.locationButtonText}>
+                {isGettingLocation
+                  ? "Getting location..."
+                  : coordinates
+                    ? "Refresh GPS location"
+                    : "Get my location"}
+              </Text>
+            </Pressable>
           </View>
 
           {/* DESCRIPTION */}
@@ -290,18 +462,48 @@ const styles = StyleSheet.create({
   /* MAP */
   mapBox: {
     width: "100%",
-    height: 240,
+    height: 300,
     backgroundColor: "#E5E5E5",
     borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
     marginBottom: 24,
   },
 
-  mapIcon: {
-    color: "#1F7A3F",
-    fontSize: 46,
-    marginBottom: 6,
+  map: {
+    ...StyleSheet.absoluteFill,
+  },
+
+  mapFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+
+  mapInstruction: {
+    position: "absolute",
+    top: 10,
+    alignSelf: "center",
+    backgroundColor: "#FFFFFFE8",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+  },
+
+  mapInstructionText: {
+    color: "#17201A",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+
+  coordinatesCard: {
+    position: "absolute",
+    left: 10,
+    right: 10,
+    bottom: 56,
+    backgroundColor: "#FFFFFFE8",
+    borderRadius: 8,
+    padding: 9,
   },
 
   mapText: {
@@ -314,6 +516,25 @@ const styles = StyleSheet.create({
     color: "#68706A",
     fontSize: 11,
     marginTop: 4,
+    textAlign: "center",
+    paddingHorizontal: 12,
+  },
+
+  locationButton: {
+    position: "absolute",
+    right: 10,
+    bottom: 10,
+    marginTop: 12,
+    backgroundColor: "#1F7A3F",
+    borderRadius: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+
+  locationButtonText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "600",
   },
 
   /* DESCRIPTION */

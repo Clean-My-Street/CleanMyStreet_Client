@@ -138,35 +138,42 @@ app.post(
       throw new HttpError(400, "A JSON request body is required.");
     }
 
+    const reportId = requireString(body.reportId, "reportId", 128);
+    if (!/^[A-Za-z0-9_-]+$/.test(reportId)) {
+      throw new HttpError(400, "reportId contains invalid characters.");
+    }
+
     const description = requireString(body.description, "description", 2000);
     const latitude = optionalCoordinate(body.latitude, "latitude", -90, 90);
     const longitude = optionalCoordinate(body.longitude, "longitude", -180, 180);
-    if ((latitude === undefined) !== (longitude === undefined)) {
-      throw new HttpError(400, "latitude and longitude must be provided together.");
+    if (latitude === undefined || longitude === undefined) {
+      throw new HttpError(400, "A GPS latitude and longitude are required.");
     }
 
-    const imageUrl =
-      body.imageUrl === undefined
-        ? undefined
-        : requireString(body.imageUrl, "imageUrl", 2048);
-    const wasteType =
-      body.wasteType === undefined
-        ? undefined
-        : requireString(body.wasteType, "wasteType", 80);
+    const imageUrl = requireString(body.imageUrl, "imageUrl", 2048);
+    const imagePath = requireString(body.imagePath, "imagePath", 256);
+    const wasteType = requireString(body.wasteType, "wasteType", 80);
+    if (!["Household", "Construction", "Illegal Dumping"].includes(wasteType)) {
+      throw new HttpError(400, "wasteType is invalid.");
+    }
+    if (imagePath !== `reports/${user.uid}/${reportId}.jpg`) {
+      throw new HttpError(400, "imagePath is invalid.");
+    }
     const createdAt = Timestamp.now();
     const report = {
       description,
-      ...(latitude !== undefined && longitude !== undefined
-        ? { location: { latitude, longitude } }
-        : {}),
-      ...(imageUrl ? { imageUrl } : {}),
-      ...(wasteType ? { wasteType } : {}),
+      location: { latitude, longitude },
+      imageUrl,
+      imagePath,
+      wasteType,
       reporterId: user.uid,
-      status: "pending",
+      status: "pending_verification",
       createdAt,
+      updatedAt: createdAt,
     };
 
-    const reference = await db.collection("reports").add(report);
+    const reference = db.collection("reports").doc(reportId);
+    await reference.create(report);
     response.status(201).json({
       id: reference.id,
       ...report,
