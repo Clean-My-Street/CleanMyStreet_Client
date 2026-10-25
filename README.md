@@ -20,11 +20,11 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 The Firebase Cloud Function in `functions/` exposes authenticated POST endpoints.
 Enable Firestore and Firebase Storage for the `cleanmystreetapp` Firebase project
-and deploy the function and Storage rules with the Firebase CLI:
+and deploy the functions and database/storage rules with the Firebase CLI:
 
 ```bash
 npm --prefix functions install
-firebase deploy --project cleanmystreetapp --only functions,storage
+firebase deploy --project cleanmystreetapp --only functions,storage,firestore:rules
 ```
 
 The app sends the signed-in user's Firebase ID token as a bearer token. Set
@@ -66,6 +66,12 @@ The authenticated API helpers are exported from `src/services/api.ts`. The
 report workflow, including photo upload and submission, is coordinated by
 `src/services/reportService.ts`; community posts and contributions use the API
 helpers directly.
+
+User settings and privacy preferences are stored in the signed-in user's
+`users/{userId}.preferences` map. Saved sites and campaigns are stored in
+`users/{userId}/savedItems/{type}_{itemId}`. Deploy `firestore.rules` before
+using those features; the rules restrict profile and saved-item access to the
+owning authenticated user.
 
 In the output, you'll find options to open the app in a
 

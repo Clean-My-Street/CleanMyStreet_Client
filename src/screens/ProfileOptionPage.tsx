@@ -13,7 +13,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
-import { JSX, useState } from "react";
+import { JSX, useEffect, useState } from "react";
 import {
 	Alert,
 	Image,
@@ -25,6 +25,16 @@ import {
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useSavedItems } from "../hooks/useSavedItems";
+import { auth } from "../services/firebase";
+import type { SavedItem } from "../services/savedItemsService";
+import {
+  DEFAULT_USER_PREFERENCES,
+  saveUserPreference,
+  subscribeUserPreferences,
+  type UserPreferenceKey,
+  type UserPreferences,
+} from "../services/userPreferencesService";
 
 export type ProfileOption =
   | "activity"
@@ -49,19 +59,61 @@ export default function ProfileOptionPage({
   option,
 }: ProfileOptionPageProps): JSX.Element {
   const router = useRouter();
-  const [savedItems, setSavedItems] = useState(["musgrave", "campaign"]);
+  const userId = auth.currentUser?.uid;
+  const savedItemsState = useSavedItems();
   const [defaultPayment, setDefaultPayment] = useState("card");
-  const [preferences, setPreferences] = useState({
-    pushNotifications: true,
-    cleanupReminders: true,
-    locationServices: false,
-    publicProfile: true,
-    activitySharing: false,
-    twoStepVerification: false,
-  });
+  const [preferences, setPreferences] = useState<UserPreferences>(
+    DEFAULT_USER_PREFERENCES,
+  );
+  const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
+  const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [savingPreference, setSavingPreference] =
+    useState<UserPreferenceKey | null>(null);
+  const [preferencesRetry, setPreferencesRetry] = useState(0);
 
-  const updatePreference = (key: keyof typeof preferences, value: boolean) => {
+  useEffect(() => {
+    if (!userId) {
+      setIsLoadingPreferences(false);
+      setPreferencesError("Sign in to load and save your preferences.");
+      return;
+    }
+
+    setIsLoadingPreferences(true);
+    setPreferencesError(null);
+    return subscribeUserPreferences(
+      userId,
+      (nextPreferences) => {
+        setPreferences(nextPreferences);
+        setIsLoadingPreferences(false);
+      },
+      (error) => {
+        setPreferencesError(error.message);
+        setIsLoadingPreferences(false);
+      },
+    );
+  }, [preferencesRetry, userId]);
+
+  const updatePreference = async (
+    key: UserPreferenceKey,
+    value: boolean,
+  ): Promise<void> => {
+    if (!userId || savingPreference) return;
+    const previousPreferences = preferences;
     setPreferences((current) => ({ ...current, [key]: value }));
+    setSavingPreference(key);
+    try {
+      await saveUserPreference(userId, key, value);
+    } catch (error) {
+      setPreferences(previousPreferences);
+      Alert.alert(
+        "Preference not saved",
+        error instanceof Error
+          ? error.message
+          : "Please check your connection and try again.",
+      );
+    } finally {
+      setSavingPreference(null);
+    }
   };
 
   return (
@@ -90,11 +142,12 @@ export default function ProfileOptionPage({
           {option === "activity" && <ActivityContent />}
           {option === "saved" && (
             <SavedContent
-              items={savedItems}
-              removeItem={(id) =>
-                setSavedItems((current) =>
-                  current.filter((item) => item !== id),
-                )
+              items={savedItemsState.items}
+              isLoading={savedItemsState.isLoading}
+              error={savedItemsState.error}
+              retry={savedItemsState.retry}
+              removeItem={(item) =>
+                void savedItemsState.toggleSavedItem(item)
               }
             />
           )}
@@ -108,12 +161,20 @@ export default function ProfileOptionPage({
             <SettingsContent
               preferences={preferences}
               updatePreference={updatePreference}
+              disabled={isLoadingPreferences || savingPreference !== null}
+              loading={isLoadingPreferences}
+              error={preferencesError}
+              retry={() => setPreferencesRetry((count) => count + 1)}
             />
           )}
           {option === "privacy" && (
             <PrivacyContent
               preferences={preferences}
               updatePreference={updatePreference}
+              disabled={isLoadingPreferences || savingPreference !== null}
+              loading={isLoadingPreferences}
+              error={preferencesError}
+              retry={() => setPreferencesRetry((count) => count + 1)}
             />
           )}
         </ScrollView>
@@ -162,10 +223,16 @@ function ActivityContent(): JSX.Element {
 
 function SavedContent({
   items,
+  isLoading,
+  error,
+  retry,
   removeItem,
 }: {
-  items: string[];
-  removeItem: (id: string) => void;
+  items: SavedItem[];
+  isLoading: boolean;
+  error: string | null;
+  retry: () => void;
+  removeItem: (item: SavedItem) => void;
 }): JSX.Element {
   return (
     <>
@@ -175,23 +242,30 @@ function SavedContent({
         text="Keep useful cleanup sites and campaigns close at hand."
       />
       <Text style={styles.sectionTitle}>Saved for later</Text>
-      {items.includes("musgrave") && (
-        <SavedCard
-          title="Musgrave Road dumping site"
-          detail="0.8 km away · Reported recently"
-          tag="Cleanup site"
-          remove={() => removeItem("musgrave")}
-        />
+      {isLoading && (
+        <Text style={styles.helperText}>Loading your saved items...</Text>
       )}
-      {items.includes("campaign") && (
-        <SavedCard
-          title="Musgrave Rd Cleanup"
-          detail="Community campaign · 65% funded"
-          tag="Campaign"
-          remove={() => removeItem("campaign")}
-        />
+      {!isLoading && error && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>Could not load saved items</Text>
+          <Text style={styles.emptyText}>{error}</Text>
+          <Pressable onPress={retry} style={styles.retryButton}>
+            <Text style={styles.outlineButtonText}>Try again</Text>
+          </Pressable>
+        </View>
       )}
-      {items.length === 0 && (
+      {!isLoading &&
+        !error &&
+        items.map((item) => (
+          <SavedCard
+            key={item.id}
+            title={item.title}
+            detail={item.detail}
+            tag={item.type === "site" ? "Cleanup site" : "Campaign"}
+            remove={() => removeItem(item)}
+          />
+        ))}
+      {!isLoading && !error && items.length === 0 && (
         <EmptyState
           title="Nothing saved yet"
           text="Save a cleanup site or campaign and it will appear here."
@@ -250,12 +324,17 @@ function PaymentContent({
 function SettingsContent({
   preferences,
   updatePreference,
+  disabled,
+  loading,
+  error,
+  retry,
 }: {
-  preferences: Record<string, boolean>;
-  updatePreference: (
-    key: "pushNotifications" | "cleanupReminders" | "locationServices",
-    value: boolean,
-  ) => void;
+  preferences: UserPreferences;
+  updatePreference: (key: UserPreferenceKey, value: boolean) => void;
+  disabled: boolean;
+  loading: boolean;
+  error: string | null;
+  retry: () => void;
 }): JSX.Element {
   return (
     <>
@@ -265,17 +344,28 @@ function SettingsContent({
         text="Manage how CleanMyStreet keeps you informed and supports your community work."
       />
       <Text style={styles.sectionTitle}>Notifications</Text>
+      {loading && <Text style={styles.helperText}>Loading preferences...</Text>}
+      {error && (
+        <View style={styles.preferenceError}>
+          <Text style={styles.preferenceDetail}>{error}</Text>
+          <Pressable onPress={retry} accessibilityRole="button">
+            <Text style={styles.outlineButtonText}>Try again</Text>
+          </Pressable>
+        </View>
+      )}
       <PreferenceRow
         title="Push notifications"
         detail="Updates about reports and campaigns"
         value={preferences.pushNotifications}
         onChange={(value) => updatePreference("pushNotifications", value)}
+        disabled={disabled || Boolean(error)}
       />
       <PreferenceRow
         title="Cleanup reminders"
         detail="Reminders for upcoming community events"
         value={preferences.cleanupReminders}
         onChange={(value) => updatePreference("cleanupReminders", value)}
+        disabled={disabled || Boolean(error)}
       />
       <Text style={styles.sectionTitle}>App preferences</Text>
       <PreferenceRow
@@ -283,6 +373,7 @@ function SettingsContent({
         detail="Use your location to show nearby cleanup sites"
         value={preferences.locationServices}
         onChange={(value) => updatePreference("locationServices", value)}
+        disabled={disabled || Boolean(error)}
       />
       <Pressable
         style={styles.preferenceRow}
@@ -304,12 +395,17 @@ function SettingsContent({
 function PrivacyContent({
   preferences,
   updatePreference,
+  disabled,
+  loading,
+  error,
+  retry,
 }: {
-  preferences: Record<string, boolean>;
-  updatePreference: (
-    key: "publicProfile" | "activitySharing" | "twoStepVerification",
-    value: boolean,
-  ) => void;
+  preferences: UserPreferences;
+  updatePreference: (key: UserPreferenceKey, value: boolean) => void;
+  disabled: boolean;
+  loading: boolean;
+  error: string | null;
+  retry: () => void;
 }): JSX.Element {
   return (
     <>
@@ -319,17 +415,28 @@ function PrivacyContent({
         text="Choose what you share and strengthen the security of your account."
       />
       <Text style={styles.sectionTitle}>Privacy</Text>
+      {loading && <Text style={styles.helperText}>Loading preferences...</Text>}
+      {error && (
+        <View style={styles.preferenceError}>
+          <Text style={styles.preferenceDetail}>{error}</Text>
+          <Pressable onPress={retry} accessibilityRole="button">
+            <Text style={styles.outlineButtonText}>Try again</Text>
+          </Pressable>
+        </View>
+      )}
       <PreferenceRow
         title="Public profile"
         detail="Allow community members to find your profile"
         value={preferences.publicProfile}
         onChange={(value) => updatePreference("publicProfile", value)}
+        disabled={disabled || Boolean(error)}
       />
       <PreferenceRow
         title="Share activity"
         detail="Show your cleanup activity on your profile"
         value={preferences.activitySharing}
         onChange={(value) => updatePreference("activitySharing", value)}
+        disabled={disabled || Boolean(error)}
       />
       <Text style={styles.sectionTitle}>Account security</Text>
       <PreferenceRow
@@ -337,6 +444,7 @@ function PrivacyContent({
         detail="Add an extra step when signing in"
         value={preferences.twoStepVerification}
         onChange={(value) => updatePreference("twoStepVerification", value)}
+        disabled={disabled || Boolean(error)}
       />
       <View style={styles.securityTip}>
         <View style={styles.securityIcon}>
@@ -491,11 +599,13 @@ function PreferenceRow({
   detail,
   value,
   onChange,
+  disabled,
 }: {
   title: string;
   detail: string;
   value: boolean;
   onChange: (value: boolean) => void;
+  disabled: boolean;
 }): JSX.Element {
   return (
     <View style={styles.preferenceRow}>
@@ -506,6 +616,7 @@ function PreferenceRow({
       <Switch
         value={value}
         onValueChange={onChange}
+        disabled={disabled}
         trackColor={{ false: "#D7DDD8", true: "#9BD8B1" }}
         thumbColor={value ? colors.green : "#FFFFFF"}
         accessibilityLabel={title}
@@ -799,6 +910,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 15,
     marginTop: 12,
+  },
+  retryButton: {
+    marginTop: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: colors.green,
+    borderRadius: 8,
+  },
+  preferenceError: {
+    backgroundColor: "#FFF4F2",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    gap: 8,
   },
   preferenceRow: {
     minHeight: 68,

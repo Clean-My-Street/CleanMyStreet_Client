@@ -16,8 +16,18 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { faBookmark } from "@fortawesome/free-solid-svg-icons";
+import { useSavedItems } from "../hooks/useSavedItems";
 
 export default function PreviewCampaign(): JSX.Element {
+  const savedItemsState = useSavedItems();
+  const campaignToSave = {
+    itemId: "musgrave-road-cleanup",
+    type: "campaign" as const,
+    title: "Musgrave Rd Cleanup",
+    detail: "Community campaign · Funding open",
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
@@ -65,8 +75,37 @@ export default function PreviewCampaign(): JSX.Element {
           </View>
 
           <View style={styles.details}>
-            <View style={styles.statusPill}>
-              <Text style={styles.statusText}>Funding Open</Text>
+            <View style={styles.statusAndSave}>
+              <View style={styles.statusPill}>
+                <Text style={styles.statusText}>Funding Open</Text>
+              </View>
+              <Pressable
+                style={styles.saveCampaignButton}
+                onPress={() =>
+                  void savedItemsState.toggleSavedItem(campaignToSave)
+                }
+                disabled={
+                  savedItemsState.isLoading ||
+                  savedItemsState.isPending(campaignToSave)
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`${
+                  savedItemsState.isSaved(campaignToSave) ? "Remove" : "Save"
+                } Musgrave Road Cleanup campaign`}
+              >
+                <FontAwesomeIcon
+                  icon={faBookmark}
+                  size={14}
+                  color={
+                    savedItemsState.isSaved(campaignToSave)
+                      ? "#1F7A3F"
+                      : "#68706A"
+                  }
+                />
+                <Text style={styles.saveCampaignText}>
+                  {savedItemsState.isSaved(campaignToSave) ? "Saved" : "Save"}
+                </Text>
+              </Pressable>
             </View>
 
             <Text style={styles.sectionLabel}>Description</Text>
@@ -96,14 +135,13 @@ export default function PreviewCampaign(): JSX.Element {
             onPress={() => router.push("/news")}
             accessibilityLabel="View News"
           >
-            <view>
               {" "}
               <FontAwesomeIcon
                 icon={faNewspaper}
                 size={20}
                 color="#124A2A"
-              />{" "}
-            </view>
+              />
+              {" "}
           </Pressable>
           <Pressable style={styles.addButton} onPress={() => {}}>
             <Text style={styles.addButtonText}>+</Text>
@@ -206,6 +244,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 5,
     marginBottom: 5,
+  },
+  statusAndSave: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  saveCampaignButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "#EAF5ED",
+  },
+  saveCampaignText: {
+    color: "#1F7A3F",
+    fontSize: 10,
+    fontWeight: "700",
   },
   statusText: { color: "#36A965", fontSize: 9 },
   sectionLabel: {

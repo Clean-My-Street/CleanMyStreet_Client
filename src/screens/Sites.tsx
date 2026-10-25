@@ -1,4 +1,5 @@
 import {
+  faBookmark,
   faHome,
   faNewspaper,
   faUser,
@@ -16,12 +17,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useSavedItems } from "../hooks/useSavedItems";
 
 type ViewMode = "Map" | "List";
 
 type Status = "Reported" | "Funding" | "Scheduled" | "Cleaned";
 
 type Site = {
+  id: string;
   name: string;
   distance: string;
   status: Status;
@@ -29,26 +32,31 @@ type Site = {
 
 const sites: Site[] = [
   {
+    id: "musgrave-road",
     name: "Musgrave Road",
     distance: "0.8 km from you",
     status: "Funding",
   },
   {
+    id: "botanic-gardens",
     name: "Botanic Gardens",
     distance: "1.2 km from you",
     status: "Scheduled",
   },
   {
+    id: "umbilo-road",
     name: "Umbilo Road",
     distance: "2.1 km from you",
     status: "Reported",
   },
   {
+    id: "glenwood-park",
     name: "Glenwood Park",
     distance: "2.8 km from you",
     status: "Cleaned",
   },
   {
+    id: "berea-road",
     name: "Berea Road",
     distance: "3.4 km from you",
     status: "Funding",
@@ -59,6 +67,7 @@ const filters: Status[] = ["Reported", "Funding", "Scheduled", "Cleaned"];
 
 export default function Sites(): JSX.Element {
   const router = useRouter();
+  const savedItemsState = useSavedItems();
 
   const [viewMode, setViewMode] = useState<ViewMode>("Map");
   const [activeFilter, setActiveFilter] = useState<Status | "All">("All");
@@ -201,7 +210,7 @@ export default function Sites(): JSX.Element {
             {/* SITE LIST */}
             <View style={styles.siteList}>
               {filteredSites.map((site) => (
-                <Pressable key={site.name} style={styles.siteCard}>
+                <View key={site.id} style={styles.siteCard}>
                   {/* IMAGE PLACEHOLDER */}
                   <View style={styles.siteImage}>
                     <Text style={styles.imageText}>Image</Text>
@@ -226,7 +235,55 @@ export default function Sites(): JSX.Element {
                       </Text>
                     </View>
                   </View>
-                </Pressable>
+                  <Pressable
+                    style={styles.saveButton}
+                    onPress={() =>
+                      void savedItemsState.toggleSavedItem({
+                        itemId: site.id,
+                        type: "site",
+                        title: site.name,
+                        detail: `${site.distance} · ${site.status}`,
+                      })
+                    }
+                    disabled={
+                      savedItemsState.isLoading ||
+                      savedItemsState.isPending({
+                        itemId: site.id,
+                        type: "site",
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`${
+                      savedItemsState.isSaved({
+                        itemId: site.id,
+                        type: "site",
+                      })
+                        ? "Remove"
+                        : "Save"
+                    } ${site.name}`}
+                  >
+                    <FontAwesomeIcon
+                      icon={faBookmark}
+                      size={15}
+                      color={
+                        savedItemsState.isSaved({
+                          itemId: site.id,
+                          type: "site",
+                        })
+                          ? "#1F7A3F"
+                          : "#68706A"
+                      }
+                    />
+                    <Text style={styles.saveButtonText}>
+                      {savedItemsState.isSaved({
+                        itemId: site.id,
+                        type: "site",
+                      })
+                        ? "Saved"
+                        : "Save"}
+                    </Text>
+                  </Pressable>
+                </View>
               ))}
             </View>
           </View>
@@ -539,6 +596,19 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 11,
     justifyContent: "center",
+  },
+  saveButton: {
+    alignSelf: "center",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    minWidth: 44,
+    paddingVertical: 8,
+  },
+  saveButtonText: {
+    color: "#68706A",
+    fontSize: 8,
+    fontWeight: "600",
   },
 
   siteName: {
