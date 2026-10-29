@@ -16,7 +16,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 type ViewMode = "Map" | "List";
 
 type Status = "Reported" | "Funding" | "Scheduled" | "Cleaned";
@@ -259,12 +258,24 @@ export default function Sites(): JSX.Element {
           >
             <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
           </Pressable>
-          <Pressable
-            onPress={() => router.push("/profile")}
-            accessibilityLabel="View profile"
+<Pressable
+              onPress={() => router.push('/profile')}
+              accessibilityLabel="View profile"
+              style={styles.profileNavButton}
           >
-            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
-          </Pressable>
+        {profilePictureUrl ? (
+       <Image
+      source={{ uri: profilePictureUrl }}
+        style={styles.profileNavImage}
+        onError={() => {
+        console.error('Failed to load profile picture image.');
+        setProfilePictureUrl(null);
+        }}
+       />
+     ) : (
+        <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
+          )}
+      </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -595,4 +606,18 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     lineHeight: 30,
   },
+ profileNavButton: {
+  width: 36,
+  height: 36,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+profileNavImage: {
+  width: 28,
+  height: 28,
+  borderRadius: 14,
+  borderWidth: 1,
+  borderColor: '#36B86B',
+},
 });

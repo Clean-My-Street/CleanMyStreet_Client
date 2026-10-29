@@ -7,13 +7,16 @@ import {
   faLocationDot,
   faNewspaper,
   faPaperPlane,
+  faUser,
   faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
-import { JSX, useMemo, useState } from "react";
+import { doc, onSnapshot } from 'firebase/firestore';
+import { JSX, useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +26,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createCommunityPost } from "../services/api";
+import { auth, db } from '../services/firebase';
 
 type Category = "Cleanup" | "Tips" | "Question";
 type Filter = "All" | Category;
@@ -121,6 +125,39 @@ export default function Community(): JSX.Element {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState("");
+  const user = auth.currentUser;
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+  if (!user) {
+    setProfilePictureUrl(null);
+    return;
+  }
+
+  const userRef = doc(db, 'users', user.uid);
+
+  const unsubscribe = onSnapshot(
+    userRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        const savedUrl = snapshot.data().profilePictureUrl;
+
+        setProfilePictureUrl(
+          typeof savedUrl === 'string' && savedUrl.trim() !== ''
+            ? savedUrl
+            : null
+     );
+      } else {
+        setProfilePictureUrl(null);
+      }
+    },
+    (error) => {
+      console.error('Error loading profile picture:', error);
+    }
+  );
+
+  return unsubscribe;
+}, [user?.uid]);
 
   const visiblePosts = useMemo(
     () =>
@@ -536,13 +573,24 @@ export default function Community(): JSX.Element {
           >
             <FontAwesomeIcon icon={faUsers} size={20} color={colors.green} />
           </Pressable>
-          <Pressable
-            onPress={() => router.push("/profile")}
-            accessibilityRole="button"
-            accessibilityLabel="View profile"
-          >
-            <Avatar initials="MI" color={colors.green} size={23} />
-          </Pressable>
+   <Pressable
+                onPress={() => router.push('/profile')}
+                accessibilityLabel="View profile"
+                style={styles.profileNavButton}
+            >
+          {profilePictureUrl ? (
+         <Image
+        source={{ uri: profilePictureUrl }}
+          style={styles.profileNavImage}
+          onError={() => {
+          console.error('Failed to load profile picture image.');
+          setProfilePictureUrl(null);
+          }}
+         />
+       ) : (
+          <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
+            )}
+        </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -858,4 +906,19 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     lineHeight: 28,
   },
+  
+  profileNavButton: {
+  width: 36,
+  height: 36,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+profileNavImage: {
+  width: 28,
+  height: 28,
+  borderRadius: 14,
+  borderWidth: 1,
+  borderColor: '#36B86B',
+},
 });

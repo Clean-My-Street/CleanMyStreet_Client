@@ -1,4 +1,4 @@
-import { faBell, faHome, faNewspaper, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faBell, faHome, faNewspaper, faUser, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
 import { doc, onSnapshot } from 'firebase/firestore';

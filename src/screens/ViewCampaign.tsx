@@ -1,31 +1,34 @@
 import {
-	faArrowLeft,
-	faCheck,
-	faHome,
-	faMap,
-	faShareNodes,
-	faUser,
-	faUsers,
+  faArrowLeft,
+  faCheck,
+  faHome,
+  faMap,
+  faShareNodes,
+  faUser,
+  faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
-import { router } from "expo-router";
-import { JSX, useState } from "react";
+import { useRouter } from 'expo-router';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { JSX, useEffect, useState } from "react";
 import {
-	Alert,
-	Image,
-	Keyboard,
-	Pressable,
-	ScrollView,
-	StyleSheet,
-	Text,
-	TextInput,
-	View,
+  Alert,
+  Image,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { auth, db } from '../services/firebase';
+
 import {
-	createCampaignContribution,
-	FEATURED_CAMPAIGN_ID,
-	getApiErrorMessage,
+  createCampaignContribution,
+  FEATURED_CAMPAIGN_ID,
+  getApiErrorMessage,
 } from "../services/api";
 
 export default function ViewCampaign(): JSX.Element {
@@ -57,6 +60,42 @@ export default function ViewCampaign(): JSX.Element {
 	    setIsContributing(false);
 	  }
 	};
+    const router = useRouter();
+    const user = auth.currentUser;
+    const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
+  
+    useEffect(() => {
+    if (!user) {
+      setProfilePictureUrl(null);
+      return;
+    }
+  
+    const userRef = doc(db, 'users', user.uid);
+  
+    const unsubscribe = onSnapshot(
+      userRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const savedUrl = snapshot.data().profilePictureUrl;
+  
+          setProfilePictureUrl(
+            typeof savedUrl === 'string' && savedUrl.trim() !== ''
+              ? savedUrl
+              : null
+       );
+        } else {
+          setProfilePictureUrl(null);
+        }
+      },
+      (error) => {
+        console.error('Error loading profile picture:', error);
+      }
+    );
+  
+    return unsubscribe;
+  }, [user?.uid]);
+  
+  
 
 	return (
     <SafeAreaView style={styles.safeArea}>
@@ -180,12 +219,24 @@ export default function ViewCampaign(): JSX.Element {
           >
             <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
           </Pressable>
-          <Pressable
-            onPress={() => router.push("/profile")}
-            accessibilityLabel="View profile"
+<Pressable
+              onPress={() => router.push('/profile')}
+              accessibilityLabel="View profile"
+              style={styles.profileNavButton}
           >
-            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
-          </Pressable>
+        {profilePictureUrl ? (
+       <Image
+      source={{ uri: profilePictureUrl }}
+        style={styles.profileNavImage}
+        onError={() => {
+        console.error('Failed to load profile picture image.');
+        setProfilePictureUrl(null);
+        }}
+       />
+     ) : (
+        <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
+          )}
+      </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -358,4 +409,18 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     lineHeight: 30,
   },
+ profileNavButton: {
+  width: 36,
+  height: 36,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+profileNavImage: {
+  width: 28,
+  height: 28,
+  borderRadius: 14,
+  borderWidth: 1,
+  borderColor: '#36B86B',
+},
 });
