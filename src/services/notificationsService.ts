@@ -68,6 +68,39 @@ export function subscribeNotifications(
   );
 }
 
+// Calls onNew for each notification created after subscribing, so the app
+// can show it as a local notification. Existing ones are skipped.
+export function subscribeNewNotifications(
+  userId: string,
+  onNew: (title: string) => void,
+): Unsubscribe {
+  const latestQuery = query(
+    getNotificationsCollection(userId),
+    orderBy("createdAt", "desc"),
+    limit(10),
+  );
+  // Snapshots up to the first one confirmed by the server are the baseline.
+  let hasBaseline = false;
+
+  return onSnapshot(
+    latestQuery,
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      if (!hasBaseline) {
+        hasBaseline = !snapshot.metadata.fromCache;
+        return;
+      }
+      for (const change of snapshot.docChanges()) {
+        const data = change.doc.data();
+        if (change.type === "added" && !data.read && typeof data.title === "string") {
+          onNew(data.title);
+        }
+      }
+    },
+    (error) => console.error("Could not watch for new notifications.", error),
+  );
+}
+
 export async function setNotificationRead(
   userId: string,
   notificationId: string,

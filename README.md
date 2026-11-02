@@ -65,10 +65,16 @@ Popular`, `Recent News`, `Recycling` or `Sites`) and a `publishedAt` timestamp;
 
 In-app notifications live in `users/{userId}/notifications`. The API writes one
 when a report is submitted and when a pledge is recorded; users can only change
-a notification's `read` field. Cleanup reminders are a weekly local
-notification (Saturday 08:00) scheduled on the device with
-`expo-notifications` when the user turns the setting on. Remote push
-notifications are not set up yet. Direct messages in Community are hidden until
+a notification's `read` field.
+
+The app uses local notifications only (`expo-notifications`); there are no push
+tokens or server-sent pushes. Both settings are off until the user turns them
+on and grants permission:
+
+- **Report and campaign alerts** show a device notification when a new entry
+  appears in `users/{userId}/notifications`. They only fire while the app is
+  open or recently backgrounded, because nothing wakes a closed app.
+- **Cleanup reminders** schedule a weekly notification for Saturday 08:00. Direct messages in Community are hidden until
 conversations have a backend. The report flow requires camera and foreground-location
 permissions. Its Firebase Storage rules allow signed-in users to upload images
 under their own report folder, and allow signed-in users to read report photos.
