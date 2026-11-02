@@ -1,50 +1,15 @@
-import { faBell, faHome, faNewspaper, faUser, faUsers } from '@fortawesome/free-solid-svg-icons';
+import { faBell, faHome, faNewspaper, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { JSX, useEffect, useState } from 'react';
+import { JSX } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth, db } from '../services/firebase';
+import { ProfileNavButton } from '../components/ProfileNavButton';
 import { shareFeaturedCampaign } from '../services/shareService';
 
 
 export default function Home(): JSX.Element {
   const router = useRouter();
-  const user = auth.currentUser;
-  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-  if (!user) {
-    setProfilePictureUrl(null);
-    return;
-  }
-
-  const userRef = doc(db, 'users', user.uid);
-
-  const unsubscribe = onSnapshot(
-    userRef,
-    (snapshot) => {
-      if (snapshot.exists()) {
-        const savedUrl = snapshot.data().profilePictureUrl;
-
-        setProfilePictureUrl(
-          typeof savedUrl === 'string' && savedUrl.trim() !== ''
-            ? savedUrl
-            : null
-     );
-      } else {
-        setProfilePictureUrl(null);
-      }
-    },
-    (error) => {
-      console.error('Error loading profile picture:', error);
-    }
-  );
-
-  return unsubscribe;
-}, [user?.uid]);
-
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -200,24 +165,7 @@ export default function Home(): JSX.Element {
           >
             <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
           </Pressable>
-           <Pressable
-              onPress={() => router.push('/profile')}
-              accessibilityLabel="View profile"
-              style={styles.profileNavButton}
-          >
-        {profilePictureUrl ? (
-       <Image
-      source={{ uri: profilePictureUrl }}
-        style={styles.profileNavImage}
-        onError={() => {
-        console.error('Failed to load profile picture image.');
-        setProfilePictureUrl(null);
-        }}
-       />
-     ) : (
-        <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
-          )}
-      </Pressable>
+          <ProfileNavButton />
         </View>
       </View>
     </SafeAreaView>
@@ -298,19 +246,4 @@ const styles = StyleSheet.create({
   bottomNav: { minHeight: 68, borderTopWidth: 1, borderTopColor: '#E8E8E8', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 10 },
   addButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: '#68706A', alignItems: 'center', justifyContent: 'center' },
   addButtonText: { color: '#17201A', fontSize: 28, fontWeight: '300', lineHeight: 30 },
-  
-  profileNavButton: {
-  width: 36,
-  height: 36,
-  alignItems: 'center',
-  justifyContent: 'center',
-},
-
-profileNavImage: {
-  width: 28,
-  height: 28,
-  borderRadius: 14,
-  borderWidth: 1,
-  borderColor: '#36B86B',
-},
 });

@@ -1,7 +1,6 @@
 import {
   faHome,
   faNewspaper,
-  faUser,
   faUsers
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
@@ -21,6 +20,7 @@ import {
 } from "react-native";
 import MapView, { Marker, type MapPressEvent, type Region } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ProfileNavButton } from "../components/ProfileNavButton";
 import { getApiErrorMessage } from "../services/api";
 import {
   submitDumpingReport,
@@ -382,12 +382,7 @@ export default function Location(): JSX.Element {
           >
             <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
           </Pressable>
-          <Pressable
-            onPress={() => router.push("/profile")}
-            accessibilityLabel="View profile"
-          >
-            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
-          </Pressable>
+          <ProfileNavButton />
         </View>
       </View>
     </SafeAreaView>

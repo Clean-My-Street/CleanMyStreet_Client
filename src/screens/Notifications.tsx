@@ -2,7 +2,6 @@ import {
 	faCheck,
 	faHome,
 	faNewspaper,
-	faUser,
 	faUsers
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
@@ -19,6 +18,7 @@ import {
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ProfileNavButton } from "../components/ProfileNavButton";
 import { auth } from "../services/firebase";
 import {
   markNotificationsRead,
@@ -236,12 +236,7 @@ export default function Notifications(): JSX.Element {
           >
             <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
           </Pressable>
-          <Pressable
-            onPress={() => router.push("/profile")}
-            accessibilityLabel="View profile"
-          >
-            <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
-          </Pressable>
+          <ProfileNavButton />
         </View>
       </View>
     </SafeAreaView>
