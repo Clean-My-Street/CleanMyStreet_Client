@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db, storage } from '../services/firebase';
+import { readLocalImage } from '../utils/readLocalImage';
 
 export default function EditProfile() {
   const router = useRouter();
@@ -204,18 +205,7 @@ if (selectedImageUri) {
   console.log('Uploading profile picture to Firebase Storage...');
 
   // Read the selected local image.
-  const response = await fetch(selectedImageUri);
-
-  // React Native reports local file:// reads as status 0, so `ok` is false
-  // even when the read succeeded. Check the blob's size instead.
-  if (!response.ok && response.status !== 0) {
-    throw new Error('Could not read the selected image.');
-  }
-
-  const imageBlob = await response.blob();
-  if (imageBlob.size === 0) {
-    throw new Error('Could not read the selected image.');
-  }
+  const imageBlob = await readLocalImage(selectedImageUri);
 
   // Use a consistent Storage path for this user's profile picture.
   const imageRef = ref(

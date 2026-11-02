@@ -7,6 +7,7 @@ import {
 } from "firebase/storage";
 import { auth, db, storage } from "./firebase";
 import { createReport, type CreateReportInput } from "./api";
+import { readLocalImage } from "../utils/readLocalImage";
 
 export type WasteType = "Household" | "Construction" | "Illegal Dumping";
 
@@ -47,14 +48,7 @@ export async function submitDumpingReport(
   let imageUploaded = false;
 
   try {
-    const response = await fetch(input.photoUri);
-    if (!response.ok && response.status !== 0) {
-      throw new Error("The selected photo could not be read.");
-    }
-    const imageBlob = await response.blob();
-    if (imageBlob.size === 0) {
-      throw new Error("The selected photo could not be read.");
-    }
+    const imageBlob = await readLocalImage(input.photoUri);
 
     await uploadBytes(imageReference, imageBlob, {
       contentType: "image/jpeg",
