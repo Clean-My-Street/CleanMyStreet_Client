@@ -17,7 +17,6 @@ import { JSX, useEffect, useState } from "react";
 import {
 	Alert,
 	Image,
-	Platform,
 	Pressable,
 	ScrollView,
 	StyleSheet,
@@ -28,6 +27,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSavedItems } from "../hooks/useSavedItems";
 import {
+  areLocalNotificationsSupported,
   disableCleanupReminders,
   enableCleanupReminders,
   requestNotificationPermission,
@@ -119,9 +119,9 @@ export default function ProfileOptionPage({
           setPreferences(previousPreferences);
           Alert.alert(
             "Notifications unavailable",
-            Platform.OS === "web"
-              ? "Notifications are only available in the mobile app."
-              : "Allow notifications for CleanMyStreet in your device settings to turn this on.",
+            areLocalNotificationsSupported()
+              ? "Allow notifications for CleanMyStreet in your device settings to turn this on."
+              : "Notifications aren't available in this version of the app. Use the installed CleanMyStreet app (a development or store build).",
           );
           return;
         }

@@ -1,4 +1,4 @@
-import * as Notifications from "expo-notifications";
+import type * as NotificationsModule from "expo-notifications";
 import { Platform } from "react-native";
 
 // The app only uses local notifications, scheduled or shown by this device.
@@ -9,11 +9,32 @@ const ACTIVITY_CHANNEL_ID = "activity-alerts";
 // expo-notifications numbers weekdays 1–7 starting on Sunday.
 const SATURDAY = 7;
 
-export const areLocalNotificationsSupported = Platform.OS !== "web";
+let notificationsModule: typeof NotificationsModule | null | undefined;
+
+// expo-notifications is loaded on first use instead of imported at the top:
+// some runtimes (web, and Expo Go on Android) lack its native modules, and a
+// failed top-level import would crash every screen that imports this file.
+function getNotifications(): typeof NotificationsModule | null {
+  if (notificationsModule !== undefined) return notificationsModule;
+  if (Platform.OS === "web") {
+    notificationsModule = null;
+    return null;
+  }
+  try {
+    notificationsModule = require("expo-notifications") as typeof NotificationsModule;
+  } catch (error) {
+    console.warn("Local notifications are unavailable in this app build.", error);
+    notificationsModule = null;
+  }
+  return notificationsModule;
+}
+
+export function areLocalNotificationsSupported(): boolean {
+  return getNotifications() !== null;
+}
 
 export function configureNotificationDisplay(): void {
-  if (!areLocalNotificationsSupported) return;
-  Notifications.setNotificationHandler({
+  getNotifications()?.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,
       shouldShowList: true,
@@ -23,7 +44,9 @@ export function configureNotificationDisplay(): void {
   });
 }
 
-async function ensureAndroidChannels(): Promise<void> {
+async function ensureAndroidChannels(
+  Notifications: typeof NotificationsModule,
+): Promise<void> {
   // Android 13+ only shows the permission prompt once a channel exists.
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
@@ -38,8 +61,9 @@ async function ensureAndroidChannels(): Promise<void> {
 
 // Asks for permission if needed. Returns false when notifications can't be shown.
 export async function requestNotificationPermission(): Promise<boolean> {
-  if (!areLocalNotificationsSupported) return false;
-  await ensureAndroidChannels();
+  const Notifications = getNotifications();
+  if (!Notifications) return false;
+  await ensureAndroidChannels(Notifications);
 
   let permissions = await Notifications.getPermissionsAsync();
   if (!permissions.granted && permissions.canAskAgain) {
@@ -49,21 +73,25 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 async function hasNotificationPermission(): Promise<boolean> {
-  if (!areLocalNotificationsSupported) return false;
-  await ensureAndroidChannels();
+  const Notifications = getNotifications();
+  if (!Notifications) return false;
+  await ensureAndroidChannels(Notifications);
   return (await Notifications.getPermissionsAsync()).granted;
 }
 
 // Shows a notification right away for an update to the user's reports or pledges.
 export async function showActivityAlert(title: string): Promise<void> {
-  if (!(await hasNotificationPermission())) return;
+  const Notifications = getNotifications();
+  if (!Notifications || !(await hasNotificationPermission())) return;
   await Notifications.scheduleNotificationAsync({
     content: { title: "CleanMyStreet", body: title },
     trigger: { channelId: ACTIVITY_CHANNEL_ID },
   });
 }
 
-async function scheduleReminder(): Promise<void> {
+async function scheduleReminder(
+  Notifications: typeof NotificationsModule,
+): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(REMINDER_ID);
   await Notifications.scheduleNotificationAsync({
     identifier: REMINDER_ID,
@@ -83,21 +111,23 @@ async function scheduleReminder(): Promise<void> {
 
 // Asks for permission if needed. Returns false when reminders can't be shown.
 export async function enableCleanupReminders(): Promise<boolean> {
-  if (!(await requestNotificationPermission())) return false;
-  await scheduleReminder();
+  const Notifications = getNotifications();
+  if (!Notifications || !(await requestNotificationPermission())) return false;
+  await scheduleReminder(Notifications);
   return true;
 }
 
 export async function disableCleanupReminders(): Promise<void> {
-  if (!areLocalNotificationsSupported) return;
-  await Notifications.cancelScheduledNotificationAsync(REMINDER_ID);
+  await getNotifications()?.cancelScheduledNotificationAsync(REMINDER_ID);
 }
 
 // Matches this device's schedule to the saved preference without prompting,
 // e.g. after signing in on a new device or signing out.
 export async function syncCleanupReminders(enabled: boolean): Promise<void> {
+  const Notifications = getNotifications();
+  if (!Notifications) return;
   if (enabled && (await hasNotificationPermission())) {
-    await scheduleReminder();
+    await scheduleReminder(Notifications);
   } else {
     await disableCleanupReminders();
   }
