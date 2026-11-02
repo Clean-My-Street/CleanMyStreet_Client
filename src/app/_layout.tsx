@@ -1,11 +1,13 @@
 import { Stack } from 'expo-router';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
+import { auth } from '../services/firebase';
 import {
   configureNotificationDisplay,
+  showActivityAlert,
   syncCleanupReminders,
-} from '../services/cleanupReminderService';
-import { auth } from '../services/firebase';
+} from '../services/localNotificationService';
+import { subscribeNewNotifications } from '../services/notificationsService';
 import { subscribeUserPreferences } from '../services/userPreferencesService';
 
 configureNotificationDisplay();
@@ -19,6 +21,7 @@ function syncReminders(enabled: boolean) {
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
   const [isAuthResolved, setIsAuthResolved] = useState(false);
+  const [activityAlerts, setActivityAlerts] = useState(false);
 
   useEffect(
     () =>
@@ -29,18 +32,32 @@ export default function RootLayout() {
     [],
   );
 
-  // Keep this device's reminder schedule in line with the saved preference.
+  // Keep this device's local notifications in line with the saved preferences.
   useEffect(() => {
     if (!user) {
+      setActivityAlerts(false);
       if (isAuthResolved) syncReminders(false);
       return;
     }
     return subscribeUserPreferences(
       user.uid,
-      (preferences) => syncReminders(preferences.cleanupReminders),
+      (preferences) => {
+        setActivityAlerts(preferences.activityAlerts);
+        syncReminders(preferences.cleanupReminders);
+      },
       (error) => console.error('Could not load preferences.', error),
     );
   }, [isAuthResolved, user]);
+
+  // Show new report and pledge updates as local notifications while the app runs.
+  useEffect(() => {
+    if (!user || !activityAlerts) return;
+    return subscribeNewNotifications(user.uid, (title) => {
+      showActivityAlert(title).catch((error) =>
+        console.error('Could not show notification.', error),
+      );
+    });
+  }, [activityAlerts, user]);
 
   // Wait for the persisted session to load so signed-in users don't flash the login screen.
   if (!isAuthResolved) return null;

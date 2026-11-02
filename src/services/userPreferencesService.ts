@@ -8,7 +8,7 @@ import {
 import { db } from "./firebase";
 
 export type UserPreferences = {
-  pushNotifications: boolean;
+  activityAlerts: boolean;
   cleanupReminders: boolean;
   locationServices: boolean;
   publicProfile: boolean;
@@ -19,8 +19,8 @@ export type UserPreferences = {
 export type UserPreferenceKey = keyof UserPreferences;
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
-  pushNotifications: true,
-  // Off until the user opts in, since reminders need notification permission.
+  // Local notifications are off until the user opts in, since they need permission.
+  activityAlerts: false,
   cleanupReminders: false,
   locationServices: false,
   publicProfile: true,

@@ -30,7 +30,8 @@ import { useSavedItems } from "../hooks/useSavedItems";
 import {
   disableCleanupReminders,
   enableCleanupReminders,
-} from "../services/cleanupReminderService";
+  requestNotificationPermission,
+} from "../services/localNotificationService";
 import { auth } from "../services/firebase";
 import type { SavedItem } from "../services/savedItemsService";
 import {
@@ -107,22 +108,25 @@ export default function ProfileOptionPage({
     setPreferences((current) => ({ ...current, [key]: value }));
     setSavingPreference(key);
     try {
-      if (key === "cleanupReminders") {
-        if (value) {
-          const isEnabled = await enableCleanupReminders();
-          if (!isEnabled) {
-            setPreferences(previousPreferences);
-            Alert.alert(
-              "Reminders unavailable",
-              Platform.OS === "web"
-                ? "Cleanup reminders are only available in the mobile app."
-                : "Allow notifications for CleanMyStreet in your device settings to get cleanup reminders.",
-            );
-            return;
-          }
-        } else {
-          await disableCleanupReminders();
+      const needsPermission =
+        key === "activityAlerts" || key === "cleanupReminders";
+      if (needsPermission && value) {
+        const isEnabled =
+          key === "cleanupReminders"
+            ? await enableCleanupReminders()
+            : await requestNotificationPermission();
+        if (!isEnabled) {
+          setPreferences(previousPreferences);
+          Alert.alert(
+            "Notifications unavailable",
+            Platform.OS === "web"
+              ? "Notifications are only available in the mobile app."
+              : "Allow notifications for CleanMyStreet in your device settings to turn this on.",
+          );
+          return;
         }
+      } else if (key === "cleanupReminders") {
+        await disableCleanupReminders();
       }
       await saveUserPreference(userId, key, value);
     } catch (error) {
@@ -376,10 +380,10 @@ function SettingsContent({
         </View>
       )}
       <PreferenceRow
-        title="Push notifications"
-        detail="Updates about reports and campaigns"
-        value={preferences.pushNotifications}
-        onChange={(value) => updatePreference("pushNotifications", value)}
+        title="Report and campaign alerts"
+        detail="Notify me on this device when my reports or pledges are updated"
+        value={preferences.activityAlerts}
+        onChange={(value) => updatePreference("activityAlerts", value)}
         disabled={disabled || Boolean(error)}
       />
       <PreferenceRow
