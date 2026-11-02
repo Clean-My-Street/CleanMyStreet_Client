@@ -7,7 +7,6 @@ import {
 	faLeaf,
 	faNewspaper,
 	faShieldHalved,
-	faUser,
 	faUsers,
 	faXmark
 } from "@fortawesome/free-solid-svg-icons";
@@ -25,6 +24,7 @@ import {
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ProfileNavButton } from "../components/ProfileNavButton";
 import { useSavedItems } from "../hooks/useSavedItems";
 import {
   areLocalNotificationsSupported,
@@ -700,13 +700,7 @@ function BottomNavigation(): JSX.Element {
       >
         <FontAwesomeIcon icon={faUsers} size={20} color={colors.green} />
       </Pressable>
-      <Pressable
-        onPress={() => router.push("/profile")}
-        accessibilityRole="button"
-        accessibilityLabel="View profile"
-      >
-        <FontAwesomeIcon icon={faUser} size={20} color={colors.green} />
-      </Pressable>
+      <ProfileNavButton iconColor={colors.green} />
     </View>
   );
 }

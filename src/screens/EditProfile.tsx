@@ -8,6 +8,7 @@ import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ProfileNavButton } from '../components/ProfileNavButton';
 import { auth, db, storage } from '../services/firebase';
 import { readLocalImage } from '../utils/readLocalImage';
 
@@ -354,7 +355,7 @@ console.log('Profile details and picture URL saved to Firestore.');
           <Pressable onPress={() => router.push('/news')} accessibilityLabel="View News"><FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" /></Pressable>
           <Pressable style={styles.addButton} onPress={() => router.push('/reportdumping')} accessibilityLabel="Report a dumping site"><Text style={styles.addButtonText}>+</Text></Pressable>
           <Pressable onPress={() => router.push('/community')} accessibilityLabel="Open community messages"><FontAwesomeIcon icon={faComments} size={20} color="#124A2A" /></Pressable>
-          <Pressable onPress={() => router.push('/profile')} accessibilityLabel="View profile"><FontAwesomeIcon icon={faUser} size={20} color="#124A2A" /></Pressable>
+          <ProfileNavButton />
         </View>
       </View>
     </SafeAreaView>

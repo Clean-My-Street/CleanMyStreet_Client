@@ -21,6 +21,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ProfileNavButton } from "../components/ProfileNavButton";
 import { createCommunityPost } from "../services/api";
 
 type Category = "Cleanup" | "Tips" | "Question";
@@ -405,13 +406,7 @@ export default function Community(): JSX.Element {
           >
             <FontAwesomeIcon icon={faUsers} size={20} color={colors.green} />
           </Pressable>
-          <Pressable
-            onPress={() => router.push("/profile")}
-            accessibilityRole="button"
-            accessibilityLabel="View profile"
-          >
-            <Avatar initials="MI" color={colors.green} size={23} />
-          </Pressable>
+          <ProfileNavButton iconColor={colors.green} />
         </View>
       </View>
     </SafeAreaView>
