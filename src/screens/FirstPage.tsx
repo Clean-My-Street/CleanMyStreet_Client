@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { JSX, useState } from 'react';
@@ -89,23 +88,15 @@ export function FirstPage(): JSX.Element {
       setIsSubmitting(true);
 
       if (isCreatingAccount) {
+        // The root layout's auth guard moves the user to Home once signed in.
         await registerWithEmail(fullName, cleanEmail, password);
 
         Alert.alert(
           'Account created',
           'Your CleanMyStreet account has been created successfully.',
-          [
-            {
-              text: 'Continue',
-              onPress: () => router.replace('/home'),
-            },
-          ]
         );
       } else {
         await loginWithEmail(cleanEmail, password);
-
-        // Navigate only after Firebase confirms successful login.
-        router.replace('/home');
       }
     } catch (error: any) {
       let message = 'Something went wrong. Please try again.';

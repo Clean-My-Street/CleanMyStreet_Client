@@ -52,7 +52,10 @@ exist.
 
 The featured campaign screen submits pledges for the Firestore document
 `campaigns/musgrave-road-cleanup`; create that document before using the
-contribution form. The report flow requires camera and foreground-location
+contribution form by running `npm --prefix functions run seed` with Admin
+credentials (`gcloud auth application-default login` or
+`GOOGLE_APPLICATION_CREDENTIALS`). The script does nothing if the campaign
+already exists. The report flow requires camera and foreground-location
 permissions. Its Firebase Storage rules allow signed-in users to upload images
 under their own report folder, and allow signed-in users to read report photos.
 The report-location map is interactive on iOS and Android: it centers on the

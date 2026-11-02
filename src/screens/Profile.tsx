@@ -14,6 +14,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
 import { JSX } from "react";
 import {
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -22,6 +23,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { logoutUser } from "../services/authService";
 import { auth } from "../services/firebase";
 
 type ProfileRowProps = {
@@ -44,6 +46,18 @@ export default function Profile(): JSX.Element {
       .map((part) => part[0])
       .join("")
       .toUpperCase() || "U";
+
+  async function handleLogout() {
+    try {
+      // The root layout's auth guard returns the user to the login screen.
+      await logoutUser();
+    } catch (error) {
+      Alert.alert(
+        "Could not log out",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -122,7 +136,7 @@ export default function Profile(): JSX.Element {
           <ProfileRow
             icon={faRightFromBracket}
             label="Log out"
-            onPress={() => router.replace('/')}
+            onPress={handleLogout}
           />
         </ScrollView>
 
