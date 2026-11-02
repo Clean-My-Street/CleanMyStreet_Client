@@ -124,6 +124,20 @@ function optionalCoordinate(
   return value;
 }
 
+type NotificationCategory = "Cleanups" | "Campaigns";
+
+function notificationReference(userId: string) {
+  return db.collection("users").doc(userId).collection("notifications").doc();
+}
+
+function notificationData(
+  category: NotificationCategory,
+  title: string,
+  createdAt: Timestamp,
+) {
+  return { category, title, initials: "CM", read: false, createdAt };
+}
+
 function responseCreatedAt(timestamp: Timestamp): string {
   return timestamp.toDate().toISOString();
 }
@@ -173,7 +187,17 @@ app.post(
     };
 
     const reference = db.collection("reports").doc(reportId);
-    await reference.create(report);
+    const batch = db.batch();
+    batch.create(reference, report);
+    batch.create(
+      notificationReference(user.uid),
+      notificationData(
+        "Cleanups",
+        "Your dumping report was received and is awaiting verification",
+        createdAt,
+      ),
+    );
+    await batch.commit();
     response.status(201).json({
       id: reference.id,
       ...report,
@@ -265,6 +289,17 @@ app.post(
         currency: "ZAR",
         createdAt,
       });
+      const campaignTitle = campaign.get("title");
+      transaction.create(
+        notificationReference(user.uid),
+        notificationData(
+          "Campaigns",
+          `Your R${body.amount} pledge to ${
+            typeof campaignTitle === "string" ? campaignTitle : "the campaign"
+          } was recorded`,
+          createdAt,
+        ),
+      );
     });
 
     response.status(201).json({

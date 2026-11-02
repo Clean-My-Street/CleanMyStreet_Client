@@ -27,6 +27,7 @@ import {
 	FEATURED_CAMPAIGN_ID,
 	getApiErrorMessage,
 } from "../services/api";
+import { shareFeaturedCampaign } from "../services/shareService";
 
 export default function ViewCampaign(): JSX.Element {
 	const [contributionAmount, setContributionAmount] = useState("100");
@@ -132,12 +133,25 @@ export default function ViewCampaign(): JSX.Element {
                 {isContributing ? "Submitting..." : "Contribute"}
               </Text>
             </Pressable>
-            <Pressable style={styles.lightAction} onPress={() => {}}>
+            <Pressable
+              style={styles.lightAction}
+              onPress={() =>
+                Alert.alert(
+                  "Funding still open",
+                  "You can book a cleaning team once this campaign reaches its R10,000 goal.",
+                )
+              }
+              accessibilityRole="button"
+            >
               <Text style={styles.lightActionText}>
                 Book a cleaning team when funding is complete
               </Text>
             </Pressable>
-            <Pressable style={styles.lightAction} onPress={() => {}}>
+            <Pressable
+              style={styles.lightAction}
+              onPress={shareFeaturedCampaign}
+              accessibilityRole="button"
+            >
               <FontAwesomeIcon icon={faShareNodes} size={13} color="#17201A" />
               <Text style={styles.lightActionText}>Share this campaign</Text>
             </Pressable>
@@ -164,7 +178,10 @@ export default function ViewCampaign(): JSX.Element {
           >
             <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
           </Pressable>
-          <Pressable accessibilityLabel="View sites">
+          <Pressable
+            onPress={() => router.push("/sites")}
+            accessibilityLabel="View sites"
+          >
             <FontAwesomeIcon icon={faMap} size={20} color="#124A2A" />
           </Pressable>
           <Pressable

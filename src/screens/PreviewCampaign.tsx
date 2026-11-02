@@ -143,7 +143,11 @@ export default function PreviewCampaign(): JSX.Element {
               />
               {" "}
           </Pressable>
-          <Pressable style={styles.addButton} onPress={() => {}}>
+          <Pressable
+            style={styles.addButton}
+            onPress={() => router.push("/reportdumping")}
+            accessibilityLabel="Report a dumping site"
+          >
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
           <Pressable

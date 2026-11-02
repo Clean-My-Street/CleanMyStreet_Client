@@ -1,7 +1,6 @@
 import {
   faArrowLeft,
   faComment,
-  faComments,
   faHeart,
   faHouse,
   faLocationDot,
@@ -36,15 +35,6 @@ type CommunityPost = {
   likes: number;
   comments: string[];
   liked?: boolean;
-};
-
-type CommunityMessage = {
-  id: string;
-  name: string;
-  initials: string;
-  preview: string;
-  time: string;
-  unread?: number;
 };
 
 const filters: Filter[] = ["All", "Cleanup", "Tips", "Question"];
@@ -83,36 +73,8 @@ const starterPosts: CommunityPost[] = [
   },
 ];
 
-const messages: CommunityMessage[] = [
-  {
-    id: "james",
-    name: "James N.",
-    initials: "JN",
-    preview: "Count me in, bringing two friends.",
-    time: "10m",
-    unread: 2,
-  },
-  {
-    id: "thandi",
-    name: "Thandi M.",
-    initials: "TM",
-    preview: "Thanks for helping with the cleanup!",
-    time: "1h",
-  },
-  {
-    id: "cleanup-team",
-    name: "Sydenham Cleanup Team",
-    initials: "SC",
-    preview: "Meet us by the community hall at 9.",
-    time: "Yesterday",
-  },
-];
-
 export default function Community(): JSX.Element {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"Neighborhood" | "Messages">(
-    "Neighborhood",
-  );
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
   const [posts, setPosts] = useState(starterPosts);
   const [draft, setDraft] = useState("");
@@ -217,290 +179,196 @@ export default function Community(): JSX.Element {
           <Text style={styles.headerTitle}>Community</Text>
         </View>
 
-        <View style={styles.tabs}>
-          <Pressable
-            onPress={() => setActiveTab("Neighborhood")}
-            style={[
-              styles.tab,
-              activeTab === "Neighborhood" && styles.activeTab,
-            ]}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === "Neighborhood" }}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "Neighborhood" && styles.activeTabText,
-              ]}
-            >
-              Neighborhood
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setActiveTab("Messages")}
-            style={[styles.tab, activeTab === "Messages" && styles.activeTab]}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === "Messages" }}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "Messages" && styles.activeTabText,
-              ]}
-            >
-              Messages
-            </Text>
-            <View style={styles.messageCount}>
-              <Text style={styles.messageCountText}>2</Text>
-            </View>
-          </Pressable>
+        {/* Direct messages are hidden until conversations have a backend. */}
+        <View style={styles.filterRow}>
+          {filters.map((filter) => {
+            const selected = activeFilter === filter;
+            return (
+              <Pressable
+                key={filter}
+                onPress={() => setActiveFilter(filter)}
+                style={[
+                  styles.filterChip,
+                  selected && styles.selectedFilterChip,
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    selected && styles.selectedFilterText,
+                  ]}
+                >
+                  {filter}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        {activeTab === "Neighborhood" ? (
-          <>
-            <View style={styles.filterRow}>
-              {filters.map((filter) => {
-                const selected = activeFilter === filter;
-                return (
+        <ScrollView
+          contentContainerStyle={styles.feed}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.composerCard}>
+            <View style={styles.composerTop}>
+              <Avatar initials="MI" color={colors.green} size={31} />
+              <TextInput
+                value={draft}
+                onChangeText={setDraft}
+                placeholder="Share something with your neighbours..."
+                placeholderTextColor={colors.muted}
+                style={styles.postInput}
+                multiline
+                accessibilityLabel="Write a community post"
+              />
+            </View>
+            {showCategoryPicker && (
+              <View style={styles.categoryPicker}>
+                {categories.map((category) => (
                   <Pressable
-                    key={filter}
-                    onPress={() => setActiveFilter(filter)}
+                    key={category}
+                    onPress={() => {
+                      setPostCategory(category);
+                      setShowCategoryPicker(false);
+                    }}
                     style={[
-                      styles.filterChip,
-                      selected && styles.selectedFilterChip,
+                      styles.categoryOption,
+                      postCategory === category &&
+                        styles.categoryOptionSelected,
                     ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
                   >
                     <Text
                       style={[
-                        styles.filterText,
-                        selected && styles.selectedFilterText,
+                        styles.categoryOptionText,
+                        postCategory === category &&
+                          styles.categoryOptionTextSelected,
                       ]}
                     >
-                      {filter}
+                      {category}
                     </Text>
                   </Pressable>
-                );
-              })}
-            </View>
-
-            <ScrollView
-              contentContainerStyle={styles.feed}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.composerCard}>
-                <View style={styles.composerTop}>
-                  <Avatar initials="MI" color={colors.green} size={31} />
-                  <TextInput
-                    value={draft}
-                    onChangeText={setDraft}
-                    placeholder="Share something with your neighbours..."
-                    placeholderTextColor={colors.muted}
-                    style={styles.postInput}
-                    multiline
-                    accessibilityLabel="Write a community post"
-                  />
-                </View>
-                {showCategoryPicker && (
-                  <View style={styles.categoryPicker}>
-                    {categories.map((category) => (
-                      <Pressable
-                        key={category}
-                        onPress={() => {
-                          setPostCategory(category);
-                          setShowCategoryPicker(false);
-                        }}
-                        style={[
-                          styles.categoryOption,
-                          postCategory === category &&
-                            styles.categoryOptionSelected,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.categoryOptionText,
-                            postCategory === category &&
-                              styles.categoryOptionTextSelected,
-                          ]}
-                        >
-                          {category}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                )}
-                <View style={styles.composerActions}>
-                  <Pressable
-                    style={styles.categoryButton}
-                    onPress={() => setShowCategoryPicker((current) => !current)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Post category: ${postCategory}`}
-                  >
-                    <Text style={styles.categoryButtonText}>
-                      {postCategory}⌄
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={publishPost}
-                    disabled={!draft.trim() || isPublishing}
-                    style={[
-                      styles.postButton,
-                      (!draft.trim() || isPublishing) &&
-                        styles.postButtonDisabled,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Publish post"
-                  >
-                    <Text style={styles.postButtonText}>Post</Text>
-                  </Pressable>
-                </View>
+                ))}
               </View>
-
-              {visiblePosts.map((post) => (
-                <View key={post.id} style={styles.postCard}>
-                  <View style={styles.postHeader}>
-                    <Avatar
-                      initials={post.initials}
-                      color={avatarColor(post.initials)}
-                      size={34}
-                    />
-                    <View style={styles.postAuthor}>
-                      <Text style={styles.authorName}>{post.name}</Text>
-                      <Text style={styles.postTime}>{post.time}</Text>
-                    </View>
-                    <View style={styles.postCategory}>
-                      <Text style={styles.postCategoryText}>
-                        {post.category}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.postBody}>{post.body}</Text>
-                  <View style={styles.postDivider} />
-                  <View style={styles.postActions}>
-                    <Pressable
-                      style={[
-                        styles.postAction,
-                        post.liked && styles.likedAction,
-                      ]}
-                      onPress={() => toggleLike(post.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${post.liked ? "Unlike" : "Like"} post, ${post.likes} likes`}
-                    >
-                      <FontAwesomeIcon
-                        icon={faHeart}
-                        size={11}
-                        color={post.liked ? "#E25555" : colors.muted}
-                      />
-                      <Text style={styles.actionCount}>{post.likes}</Text>
-                    </Pressable>
-                    <Pressable
-                      style={styles.postAction}
-                      onPress={() =>
-                        setReplyTo(replyTo === post.id ? null : post.id)
-                      }
-                      accessibilityRole="button"
-                      accessibilityLabel={`${post.comments.length} comments`}
-                    >
-                      <FontAwesomeIcon
-                        icon={faComment}
-                        size={11}
-                        color={colors.muted}
-                      />
-                      <Text style={styles.actionCount}>
-                        {post.comments.length}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={styles.messageAction}
-                      onPress={() => setActiveTab("Messages")}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Message ${post.name}`}
-                    >
-                      <FontAwesomeIcon
-                        icon={faComments}
-                        size={10}
-                        color={colors.muted}
-                      />
-                      <Text style={styles.actionLabel}>Message</Text>
-                    </Pressable>
-                  </View>
-                  {post.comments.map((comment, index) => (
-                    <View
-                      key={`${post.id}-comment-${index}`}
-                      style={styles.commentBubble}
-                    >
-                      <Text style={styles.commentText}>{comment}</Text>
-                    </View>
-                  ))}
-                  {replyTo === post.id && (
-                    <View style={styles.replyRow}>
-                      <TextInput
-                        value={replyDraft}
-                        onChangeText={setReplyDraft}
-                        placeholder="Write a comment..."
-                        placeholderTextColor={colors.muted}
-                        style={styles.replyInput}
-                        accessibilityLabel="Write a comment"
-                      />
-                      <Pressable
-                        onPress={() => publishReply(post.id)}
-                        accessibilityRole="button"
-                        accessibilityLabel="Send comment"
-                      >
-                        <FontAwesomeIcon
-                          icon={faPaperPlane}
-                          size={14}
-                          color={colors.green}
-                        />
-                      </Pressable>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </ScrollView>
-          </>
-        ) : (
-          <ScrollView
-            contentContainerStyle={styles.messageList}
-            showsVerticalScrollIndicator={false}
-          >
-            <Text style={styles.messagesHeading}>Your conversations</Text>
-            {messages.map((message) => (
+            )}
+            <View style={styles.composerActions}>
               <Pressable
-                key={message.id}
-                style={styles.messageCard}
-                onPress={() => {}}
+                style={styles.categoryButton}
+                onPress={() => setShowCategoryPicker((current) => !current)}
                 accessibilityRole="button"
-                accessibilityLabel={`Conversation with ${message.name}`}
+                accessibilityLabel={`Post category: ${postCategory}`}
               >
+                <Text style={styles.categoryButtonText}>
+                  {postCategory}⌄
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={publishPost}
+                disabled={!draft.trim() || isPublishing}
+                style={[
+                  styles.postButton,
+                  (!draft.trim() || isPublishing) &&
+                    styles.postButtonDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Publish post"
+              >
+                <Text style={styles.postButtonText}>Post</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {visiblePosts.map((post) => (
+            <View key={post.id} style={styles.postCard}>
+              <View style={styles.postHeader}>
                 <Avatar
-                  initials={message.initials}
-                  color={avatarColor(message.initials)}
-                  size={42}
+                  initials={post.initials}
+                  color={avatarColor(post.initials)}
+                  size={34}
                 />
-                <View style={styles.messageCopy}>
-                  <View style={styles.messageTitleRow}>
-                    <Text style={styles.messageName}>{message.name}</Text>
-                    <Text style={styles.messageTime}>{message.time}</Text>
-                  </View>
-                  <Text style={styles.messagePreview} numberOfLines={1}>
-                    {message.preview}
+                <View style={styles.postAuthor}>
+                  <Text style={styles.authorName}>{post.name}</Text>
+                  <Text style={styles.postTime}>{post.time}</Text>
+                </View>
+                <View style={styles.postCategory}>
+                  <Text style={styles.postCategoryText}>
+                    {post.category}
                   </Text>
                 </View>
-                {!!message.unread && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadBadgeText}>{message.unread}</Text>
-                  </View>
-                )}
-              </Pressable>
-            ))}
-            <Text style={styles.messagesNote}>
-              Neighbourhood messages will appear here.
-            </Text>
-          </ScrollView>
-        )}
+              </View>
+              <Text style={styles.postBody}>{post.body}</Text>
+              <View style={styles.postDivider} />
+              <View style={styles.postActions}>
+                <Pressable
+                  style={[
+                    styles.postAction,
+                    post.liked && styles.likedAction,
+                  ]}
+                  onPress={() => toggleLike(post.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${post.liked ? "Unlike" : "Like"} post, ${post.likes} likes`}
+                >
+                  <FontAwesomeIcon
+                    icon={faHeart}
+                    size={11}
+                    color={post.liked ? "#E25555" : colors.muted}
+                  />
+                  <Text style={styles.actionCount}>{post.likes}</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.postAction}
+                  onPress={() =>
+                    setReplyTo(replyTo === post.id ? null : post.id)
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`${post.comments.length} comments`}
+                >
+                  <FontAwesomeIcon
+                    icon={faComment}
+                    size={11}
+                    color={colors.muted}
+                  />
+                  <Text style={styles.actionCount}>
+                    {post.comments.length}
+                  </Text>
+                </Pressable>
+              </View>
+              {post.comments.map((comment, index) => (
+                <View
+                  key={`${post.id}-comment-${index}`}
+                  style={styles.commentBubble}
+                >
+                  <Text style={styles.commentText}>{comment}</Text>
+                </View>
+              ))}
+              {replyTo === post.id && (
+                <View style={styles.replyRow}>
+                  <TextInput
+                    value={replyDraft}
+                    onChangeText={setReplyDraft}
+                    placeholder="Write a comment..."
+                    placeholderTextColor={colors.muted}
+                    style={styles.replyInput}
+                    accessibilityLabel="Write a comment"
+                  />
+                  <Pressable
+                    onPress={() => publishReply(post.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Send comment"
+                  >
+                    <FontAwesomeIcon
+                      icon={faPaperPlane}
+                      size={14}
+                      color={colors.green}
+                    />
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          ))}
+        </ScrollView>
 
         <View style={styles.bottomNav}>
           <Pressable
@@ -530,9 +398,10 @@ export default function Community(): JSX.Element {
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
           <Pressable
-            onPress={() => setActiveTab("Messages")}
+            disabled
             accessibilityRole="button"
-            accessibilityLabel="Open messages"
+            accessibilityLabel="Community"
+            accessibilityState={{ selected: true }}
           >
             <FontAwesomeIcon icon={faUsers} size={20} color={colors.green} />
           </Pressable>
@@ -619,38 +488,6 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   headerTitle: { color: colors.ink, fontSize: 14, fontWeight: "600" },
-  tabs: {
-    flexDirection: "row",
-    marginHorizontal: 15,
-    marginTop: 9,
-    marginBottom: 8,
-    padding: 3,
-    height: 34,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tab: {
-    flex: 1,
-    borderRadius: 18,
-    flexDirection: "row",
-    gap: 5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  activeTab: { backgroundColor: colors.green },
-  tabText: { color: "#58625B", fontSize: 10, fontWeight: "500" },
-  activeTabText: { color: "#FFFFFF", fontWeight: "600" },
-  messageCount: {
-    width: 13,
-    height: 13,
-    borderRadius: 7,
-    backgroundColor: colors.green,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  messageCountText: { color: "#FFFFFF", fontSize: 8, fontWeight: "700" },
   filterRow: {
     flexDirection: "row",
     width: "100%",
@@ -765,8 +602,6 @@ const styles = StyleSheet.create({
   postAction: { flexDirection: "row", alignItems: "center", gap: 4 },
   likedAction: { opacity: 1 },
   actionCount: { color: colors.muted, fontSize: 8 },
-  messageAction: { flexDirection: "row", alignItems: "center", gap: 4 },
-  actionLabel: { color: colors.muted, fontSize: 8 },
   commentBubble: {
     backgroundColor: "#F2F5F3",
     borderRadius: 8,
@@ -790,48 +625,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     fontSize: 9,
     color: colors.ink,
-  },
-  messageList: { paddingHorizontal: 15, paddingTop: 12, flexGrow: 1 },
-  messagesHeading: {
-    color: colors.ink,
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  messageCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 10,
-  },
-  messageCopy: { flex: 1 },
-  messageTitleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  messageName: { color: colors.ink, fontSize: 11, fontWeight: "700" },
-  messageTime: { color: colors.muted, fontSize: 8 },
-  messagePreview: { color: colors.muted, fontSize: 9 },
-  unreadBadge: {
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.green,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  unreadBadgeText: { color: "#FFFFFF", fontSize: 8, fontWeight: "700" },
-  messagesNote: {
-    color: colors.muted,
-    textAlign: "center",
-    fontSize: 9,
-    marginTop: 22,
   },
   bottomNav: {
     minHeight: 54,

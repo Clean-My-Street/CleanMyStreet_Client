@@ -7,8 +7,10 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { router } from "expo-router";
-import { JSX, useMemo, useState } from "react";
+import { JSX, useEffect, useMemo, useState } from "react";
 import {
+	ActivityIndicator,
+	Alert,
 	Image,
 	Pressable,
 	ScrollView,
@@ -17,75 +19,50 @@ import {
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { auth } from "../services/firebase";
+import {
+  markNotificationsRead,
+  setNotificationRead,
+  subscribeNotifications,
+  type UserNotification,
+} from "../services/notificationsService";
+import { formatRelativeTime } from "../utils/formatRelativeTime";
 
 type Category = "All" | "Unread" | "Cleanups" | "Campaigns";
-type NotificationCategory = Exclude<Category, "All" | "Unread">;
-
-type NotificationItem = {
-  id: string;
-  category: NotificationCategory;
-  title: string;
-  time: string;
-  initials: string;
-  read: boolean;
-};
 
 const categories: Category[] = ["All", "Unread", "Cleanups", "Campaigns"];
 
-const initialNotifications: NotificationItem[] = [
-  {
-    id: "campaign-funded",
-    category: "Campaigns",
-    title: "Your campaign for Musgrave Rd reached 65% funding",
-    time: "2 hours ago",
-    initials: "CM",
-    read: false,
-  },
-  {
-    id: "contribution",
-    category: "Campaigns",
-    title: "James N. contributed R250 to your campaign",
-    time: "5 hours ago",
-    initials: "JN",
-    read: false,
-  },
-  {
-    id: "cleanup-scheduled",
-    category: "Cleanups",
-    title: "Cleanup for Sydenham Rd is scheduled for Aug 10, 9:00 AM",
-    time: "2 days ago",
-    initials: "SC",
-    read: true,
-  },
-  {
-    id: "booking-one",
-    category: "Cleanups",
-    title: "GreenSweep Crew confirmed your booking",
-    time: "2 days ago",
-    initials: "GS",
-    read: true,
-  },
-  {
-    id: "booking-two",
-    category: "Cleanups",
-    title: "GreenSweep Crew is preparing for your cleanup",
-    time: "3 days ago",
-    initials: "GS",
-    read: true,
-  },
-  {
-    id: "campaign-update",
-    category: "Campaigns",
-    title: "Your Musgrave Rd campaign received a new update",
-    time: "4 days ago",
-    initials: "CM",
-    read: true,
-  },
-];
-
 export default function Notifications(): JSX.Element {
+  const userId = auth.currentUser?.uid;
   const [activeCategory, setActiveCategory] = useState<Category>("All");
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([]);
+      setIsLoading(false);
+      setLoadError("Sign in to see your notifications.");
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+    return subscribeNotifications(
+      userId,
+      (nextNotifications) => {
+        setNotifications(nextNotifications);
+        setIsLoading(false);
+      },
+      (error) => {
+        setLoadError(error.message);
+        setIsLoading(false);
+      },
+    );
+  }, [retryCount, userId]);
+
   const visibleNotifications = useMemo(
     () =>
       notifications.filter((notification) => {
@@ -95,21 +72,32 @@ export default function Notifications(): JSX.Element {
       }),
     [activeCategory, notifications],
   );
+  const unreadIds = notifications
+    .filter((notification) => !notification.read)
+    .map((notification) => notification.id);
 
-  const markAllAsRead = () => {
-    setNotifications((current) =>
-      current.map((notification) => ({ ...notification, read: true })),
-    );
+  const markAllAsRead = async () => {
+    if (!userId || unreadIds.length === 0) return;
+    try {
+      await markNotificationsRead(userId, unreadIds);
+    } catch (error) {
+      Alert.alert(
+        "Could not update notifications",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    }
   };
 
-  const toggleRead = (id: string) => {
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === id
-          ? { ...notification, read: !notification.read }
-          : notification,
-      ),
-    );
+  const toggleRead = async (notification: UserNotification) => {
+    if (!userId) return;
+    try {
+      await setNotificationRead(userId, notification.id, !notification.read);
+    } catch (error) {
+      Alert.alert(
+        "Could not update notification",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    }
   };
 
   return (
@@ -129,11 +117,7 @@ export default function Notifications(): JSX.Element {
         <View style={styles.actionsRow}>
           <View style={styles.unreadCount}>
             <Text style={styles.unreadCountText}>
-              {
-                notifications.filter((notification) => !notification.read)
-                  .length
-              }{" "}
-              new
+              {unreadIds.length} new
             </Text>
           </View>
           <Pressable onPress={markAllAsRead} accessibilityRole="button">
@@ -172,7 +156,23 @@ export default function Notifications(): JSX.Element {
           contentContainerStyle={styles.notificationList}
           showsVerticalScrollIndicator={false}
         >
-          {visibleNotifications.length > 0 ? (
+          {isLoading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator color={colors.teal} />
+              <Text style={styles.emptyText}>Loading notifications...</Text>
+            </View>
+          ) : loadError ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>Notifications unavailable</Text>
+              <Text style={styles.emptyText}>{loadError}</Text>
+              <Pressable
+                onPress={() => setRetryCount((count) => count + 1)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.markAllText}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : visibleNotifications.length > 0 ? (
             visibleNotifications.map((notification) => (
               <Pressable
                 key={notification.id}
@@ -180,9 +180,9 @@ export default function Notifications(): JSX.Element {
                   styles.notificationCard,
                   !notification.read && styles.notificationUnread,
                 ]}
-                onPress={() => toggleRead(notification.id)}
+                onPress={() => toggleRead(notification)}
                 accessibilityRole="button"
-                accessibilityLabel={`${notification.title}, ${notification.time}, ${notification.read ? "read" : "unread"}. Tap to change read status.`}
+                accessibilityLabel={`${notification.title}, ${formatRelativeTime(notification.createdAt)}, ${notification.read ? "read" : "unread"}. Tap to change read status.`}
               >
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{notification.initials}</Text>
@@ -192,7 +192,7 @@ export default function Notifications(): JSX.Element {
                     {notification.title}
                   </Text>
                   <Text style={styles.notificationTime}>
-                    {notification.time}
+                    {formatRelativeTime(notification.createdAt)}
                   </Text>
                 </View>
                 {!notification.read && <View style={styles.unreadDot} />}

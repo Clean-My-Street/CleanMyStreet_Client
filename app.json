@@ -39,6 +39,12 @@
       "expo-image",
       "expo-status-bar",
       [
+        "expo-notifications",
+        {
+          "color": "#36B86B"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow CleanMyStreet to use your location to locate a reported dumping site."
