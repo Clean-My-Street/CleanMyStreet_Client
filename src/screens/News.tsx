@@ -7,8 +7,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
-import { JSX, useState } from "react";
+import { JSX, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -17,81 +18,56 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  NEWS_CATEGORIES,
+  subscribeNewsArticles,
+  type NewsArticle,
+  type NewsCategory,
+} from "../services/newsService";
+import { formatRelativeTime } from "../utils/formatRelativeTime";
 
-type Category = "All" | "Most Popular" | "Recent News" | "Recycling" | "Sites";
+type Filter = "All" | NewsCategory;
 
-type NewsArticle = {
-  id: number;
-  title: string;
-  time: string;
-  category: Category;
-  story: string;
-};
-
-const articles: NewsArticle[] = [
-  {
-    id: 1,
-    title: "Community cleanup removes illegal dumping site",
-    time: "2 hours ago",
-    category: "Recent News",
-    story:
-      "Residents and community volunteers joined a cleanup campaign to remove waste from an illegal dumping site. The cleanup focused on removing household waste, plastic and other materials that had accumulated in the area. Community members were encouraged to continue reporting illegal dumping so that problem areas can be identified and addressed.",
-  },
-  {
-    id: 2,
-    title: "New recycling campaign encourages cleaner communities",
-    time: "5 hours ago",
-    category: "Recycling",
-    story:
-      "A new recycling campaign is encouraging residents to separate recyclable materials from general waste. The campaign aims to make recycling easier for communities while reducing the amount of waste that ends up in dumping areas. Residents can participate by separating recyclable materials and using available recycling collection points.",
-  },
-  {
-    id: 3,
-    title: "Residents report growing waste problem near local site",
-    time: "Yesterday",
-    category: "Sites",
-    story:
-      "Residents have reported an increase in waste around a local dumping site. The reported waste includes household rubbish and other discarded materials. The site has been added to the community monitoring list so that residents can follow its progress and future cleanup activities.",
-  },
-  {
-    id: 4,
-    title: "Volunteers help restore a neighbourhood park",
-    time: "Yesterday",
-    category: "Most Popular",
-    story:
-      "Local volunteers gathered to clean a neighbourhood park and surrounding streets. The group collected rubbish, cleared areas affected by illegal dumping and helped restore the space for community use. Organisers are encouraging residents to take part in future community cleanup campaigns.",
-  },
-  {
-    id: 5,
-    title: "How communities can help prevent illegal dumping",
-    time: "2 days ago",
-    category: "Sites",
-    story:
-      "Preventing illegal dumping requires participation from the entire community. Residents can help by reporting dumping sites, disposing of household waste correctly and encouraging others to keep public spaces clean. Early reporting can also help communities identify problem areas before they become larger dumping sites.",
-  },
-];
+const filters: Filter[] = ["All", ...NEWS_CATEGORIES];
 
 export default function News(): JSX.Element {
   const router = useRouter();
+  const listRef = useRef<ScrollView>(null);
 
-  const [activeFilter, setActiveFilter] = useState<Category>("All");
+  const [activeFilter, setActiveFilter] = useState<Filter>("All");
+  const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(
     null,
   );
+
+  useEffect(() => {
+    setIsLoading(true);
+    setLoadError(null);
+    return subscribeNewsArticles(
+      (nextArticles) => {
+        setArticles(nextArticles);
+        setIsLoading(false);
+      },
+      (error) => {
+        setLoadError(error.message);
+        setIsLoading(false);
+      },
+    );
+  }, [retryCount]);
 
   const filteredArticles =
     activeFilter === "All"
       ? articles
       : articles.filter((article) => article.category === activeFilter);
 
-  const filters: Category[] = [
-    "All",
-    "Most Popular",
-    "Recent News",
-    "Recycling",
-    "Sites",
-  ];
+  const showAllNews = () => {
+    setActiveFilter("All");
+    listRef.current?.scrollTo({ y: 0, animated: true });
+  };
 
   if (selectedArticle) {
     return (
@@ -120,7 +96,11 @@ export default function News(): JSX.Element {
             <View style={styles.fullArticle}>
               <View style={styles.articleImageLarge}>
                 <Image
-                  source={require("../../assets/images/10.jpeg")}
+                  source={
+                    selectedArticle.imageUrl
+                      ? { uri: selectedArticle.imageUrl }
+                      : require("../../assets/images/10.jpeg")
+                  }
                   style={styles.articleImage}
                 />
               </View>
@@ -130,7 +110,7 @@ export default function News(): JSX.Element {
               </Text>
 
               <Text style={styles.fullArticleTime}>
-                Posted {selectedArticle.time}
+                Posted {formatRelativeTime(selectedArticle.publishedAt)}
               </Text>
 
               <View style={styles.articleDivider} />
@@ -192,6 +172,7 @@ export default function News(): JSX.Element {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
         <ScrollView
+          ref={listRef}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
@@ -255,7 +236,9 @@ export default function News(): JSX.Element {
                     {article.title}
                   </Text>
 
-                  <Text style={styles.newsTime}>{article.time}</Text>
+                  <Text style={styles.newsTime}>
+                    {formatRelativeTime(article.publishedAt)}
+                  </Text>
 
                   <View style={styles.categoryBadge}>
                     <Text style={styles.categoryText}>{article.category}</Text>
@@ -264,7 +247,11 @@ export default function News(): JSX.Element {
 
                 <View style={styles.newsImage}>
                   <Image
-                    source={require("../../assets/images/13.jpeg")}
+                    source={
+                      article.imageUrl
+                        ? { uri: article.imageUrl }
+                        : require("../../assets/images/13.jpeg")
+                    }
                     style={styles.articleImage}
                   />
                 </View>
@@ -272,12 +259,28 @@ export default function News(): JSX.Element {
             ))}
           </View>
 
-          {filteredArticles.length === 0 && (
+          {isLoading ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                No news available for this category.
-              </Text>
+              <ActivityIndicator color="#36B86B" />
             </View>
+          ) : loadError ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>{loadError}</Text>
+              <Pressable
+                onPress={() => setRetryCount((count) => count + 1)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.retryText}>Try again</Text>
+              </Pressable>
+            </View>
+          ) : (
+            filteredArticles.length === 0 && (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  No news available for this category.
+                </Text>
+              </View>
+            )
           )}
         </ScrollView>
 
@@ -290,7 +293,7 @@ export default function News(): JSX.Element {
             <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
           </Pressable>
 
-          <Pressable onPress={() => {}} accessibilityLabel="View News">
+          <Pressable onPress={showAllNews} accessibilityLabel="View News">
             <FontAwesomeIcon icon={faNewspaper} size={20} color="#36B86B" />
           </Pressable>
 
@@ -498,6 +501,13 @@ const styles = StyleSheet.create({
   emptyText: {
     color: "#68706A",
     fontSize: 14,
+  },
+
+  retryText: {
+    color: "#36B86B",
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 10,
   },
 
   /* Full article */

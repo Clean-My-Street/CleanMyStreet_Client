@@ -6,6 +6,7 @@ import { JSX, useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../services/firebase';
+import { shareFeaturedCampaign } from '../services/shareService';
 
 
 export default function Home(): JSX.Element {
@@ -115,7 +116,7 @@ export default function Home(): JSX.Element {
               </Pressable>
               <Pressable
                 style={[styles.campaignButton, styles.shareButton]}
-                onPress={() => {}}
+                onPress={shareFeaturedCampaign}
               >
                 <Text style={styles.secondaryButtonText}>Share</Text>
               </Pressable>
@@ -134,13 +135,13 @@ export default function Home(): JSX.Element {
             <View style={styles.campaignActions}>
               <Pressable
                 style={[styles.campaignButton, styles.primaryButton]}
-                onPress={() => {}}
+                onPress={() => router.push("/previewcampaign")}
               >
                 <Text style={styles.primaryButtonText}>Contribute</Text>
               </Pressable>
               <Pressable
                 style={[styles.campaignButton, styles.shareButton]}
-                onPress={() => {}}
+                onPress={shareFeaturedCampaign}
               >
                 <Text style={styles.secondaryButtonText}>Share</Text>
               </Pressable>
@@ -159,13 +160,13 @@ export default function Home(): JSX.Element {
             <View style={styles.campaignActions}>
               <Pressable
                 style={[styles.campaignButton, styles.primaryButton]}
-                onPress={() => {}}
+                onPress={() => router.push("/previewcampaign")}
               >
                 <Text style={styles.primaryButtonText}>Contribute</Text>
               </Pressable>
               <Pressable
                 style={[styles.campaignButton, styles.shareButton]}
-                onPress={() => {}}
+                onPress={shareFeaturedCampaign}
               >
                 <Text style={styles.secondaryButtonText}>Share</Text>
               </Pressable>
@@ -255,27 +256,6 @@ function Advertisement(): JSX.Element {
   );
 }
 
-function NavItem({
-  icon,
-  label,
-  active = false,
-}: {
-  icon: string;
-  label: string;
-  active?: boolean;
-}): JSX.Element {
-  return (
-    <Pressable style={styles.navItem} onPress={() => {}}>
-      <Text style={[styles.navIcon, active && styles.activeNavText]}>
-        {icon}
-      </Text>
-      <Text style={[styles.navLabel, active && styles.activeNavText]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
   screen: { flex: 1, backgroundColor: "#FFFFFF" },
@@ -316,10 +296,6 @@ const styles = StyleSheet.create({
   campaignButton: { flex: 1, minHeight: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   shareButton: { backgroundColor: '#FFFFFF' },
   bottomNav: { minHeight: 68, borderTopWidth: 1, borderTopColor: '#E8E8E8', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 10 },
-  navItem: { minWidth: 48, alignItems: 'center', justifyContent: 'center' },
-  navIcon: { color: '#68706A', fontSize: 8, fontWeight: '800', marginBottom: 5 },
-  navLabel: { color: '#68706A', fontSize: 9 },
-  activeNavText: { color: '#1F9A55' },
   addButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: '#68706A', alignItems: 'center', justifyContent: 'center' },
   addButtonText: { color: '#17201A', fontSize: 28, fontWeight: '300', lineHeight: 30 },
   

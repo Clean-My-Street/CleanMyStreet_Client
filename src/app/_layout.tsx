@@ -1,7 +1,20 @@
 import { Stack } from 'expo-router';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
+import {
+  configureNotificationDisplay,
+  syncCleanupReminders,
+} from '../services/cleanupReminderService';
 import { auth } from '../services/firebase';
+import { subscribeUserPreferences } from '../services/userPreferencesService';
+
+configureNotificationDisplay();
+
+function syncReminders(enabled: boolean) {
+  syncCleanupReminders(enabled).catch((error) =>
+    console.error('Could not update cleanup reminders.', error),
+  );
+}
 
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
@@ -15,6 +28,19 @@ export default function RootLayout() {
       }),
     [],
   );
+
+  // Keep this device's reminder schedule in line with the saved preference.
+  useEffect(() => {
+    if (!user) {
+      if (isAuthResolved) syncReminders(false);
+      return;
+    }
+    return subscribeUserPreferences(
+      user.uid,
+      (preferences) => syncReminders(preferences.cleanupReminders),
+      (error) => console.error('Could not load preferences.', error),
+    );
+  }, [isAuthResolved, user]);
 
   // Wait for the persisted session to load so signed-in users don't flash the login screen.
   if (!isAuthResolved) return null;

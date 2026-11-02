@@ -217,7 +217,13 @@ export default function ReportDumping(): JSX.Element {
             <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
           </Pressable>
 
-          <Pressable style={styles.addButton} onPress={() => {}}>
+          {/* Already on the report screen, so this marks the current tab. */}
+          <Pressable
+            style={styles.addButton}
+            disabled
+            accessibilityLabel="Report a dumping site"
+            accessibilityState={{ selected: true }}
+          >
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
           <Pressable

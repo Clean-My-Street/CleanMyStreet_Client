@@ -17,6 +17,7 @@ import { JSX, useEffect, useState } from "react";
 import {
 	Alert,
 	Image,
+	Platform,
 	Pressable,
 	ScrollView,
 	StyleSheet,
@@ -26,6 +27,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSavedItems } from "../hooks/useSavedItems";
+import {
+  disableCleanupReminders,
+  enableCleanupReminders,
+} from "../services/cleanupReminderService";
 import { auth } from "../services/firebase";
 import type { SavedItem } from "../services/savedItemsService";
 import {
@@ -102,6 +107,23 @@ export default function ProfileOptionPage({
     setPreferences((current) => ({ ...current, [key]: value }));
     setSavingPreference(key);
     try {
+      if (key === "cleanupReminders") {
+        if (value) {
+          const isEnabled = await enableCleanupReminders();
+          if (!isEnabled) {
+            setPreferences(previousPreferences);
+            Alert.alert(
+              "Reminders unavailable",
+              Platform.OS === "web"
+                ? "Cleanup reminders are only available in the mobile app."
+                : "Allow notifications for CleanMyStreet in your device settings to get cleanup reminders.",
+            );
+            return;
+          }
+        } else {
+          await disableCleanupReminders();
+        }
+      }
       await saveUserPreference(userId, key, value);
     } catch (error) {
       setPreferences(previousPreferences);
@@ -362,7 +384,7 @@ function SettingsContent({
       />
       <PreferenceRow
         title="Cleanup reminders"
-        detail="Reminders for upcoming community events"
+        detail="A Saturday-morning reminder to check sites near you"
         value={preferences.cleanupReminders}
         onChange={(value) => updatePreference("cleanupReminders", value)}
         disabled={disabled || Boolean(error)}

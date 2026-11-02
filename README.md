@@ -54,8 +54,22 @@ The featured campaign screen submits pledges for the Firestore document
 `campaigns/musgrave-road-cleanup`; create that document before using the
 contribution form by running `npm --prefix functions run seed` with Admin
 credentials (`gcloud auth application-default login` or
-`GOOGLE_APPLICATION_CREDENTIALS`). The script does nothing if the campaign
-already exists. The report flow requires camera and foreground-location
+`GOOGLE_APPLICATION_CREDENTIALS`). The same script creates the starter
+`newsArticles` documents shown on the News screen. It skips any document that
+already exists.
+
+News articles are read from the `newsArticles` collection, newest
+`publishedAt` first. Each document needs `title`, `story`, `category` (`Most
+Popular`, `Recent News`, `Recycling` or `Sites`) and a `publishedAt` timestamp;
+`imageUrl` is optional. Add or edit articles in the Firebase console.
+
+In-app notifications live in `users/{userId}/notifications`. The API writes one
+when a report is submitted and when a pledge is recorded; users can only change
+a notification's `read` field. Cleanup reminders are a weekly local
+notification (Saturday 08:00) scheduled on the device with
+`expo-notifications` when the user turns the setting on. Remote push
+notifications are not set up yet. Direct messages in Community are hidden until
+conversations have a backend. The report flow requires camera and foreground-location
 permissions. Its Firebase Storage rules allow signed-in users to upload images
 under their own report folder, and allow signed-in users to read report photos.
 The report-location map is interactive on iOS and Android: it centers on the

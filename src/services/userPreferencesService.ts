@@ -20,7 +20,8 @@ export type UserPreferenceKey = keyof UserPreferences;
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   pushNotifications: true,
-  cleanupReminders: true,
+  // Off until the user opts in, since reminders need notification permission.
+  cleanupReminders: false,
   locationServices: false,
   publicProfile: true,
   activitySharing: false,
