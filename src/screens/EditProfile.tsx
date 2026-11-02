@@ -206,11 +206,16 @@ if (selectedImageUri) {
   // Read the selected local image.
   const response = await fetch(selectedImageUri);
 
-  if (!response.ok) {
+  // React Native reports local file:// reads as status 0, so `ok` is false
+  // even when the read succeeded. Check the blob's size instead.
+  if (!response.ok && response.status !== 0) {
     throw new Error('Could not read the selected image.');
   }
 
   const imageBlob = await response.blob();
+  if (imageBlob.size === 0) {
+    throw new Error('Could not read the selected image.');
+  }
 
   // Use a consistent Storage path for this user's profile picture.
   const imageRef = ref(
