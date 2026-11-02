@@ -11,5 +11,15 @@ service firebase.storage {
       allow update: if false;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Each user has one profile picture, overwritten on every change.
+    match /users/{userId}/profilePicture {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }

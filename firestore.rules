@@ -38,5 +38,27 @@ service cloud.firestore {
         allow update: if false;
       }
     }
+
+    // Shared content is readable by signed-in users. All writes go through
+    // the Cloud Function API, which uses the Admin SDK and bypasses these rules.
+    match /reports/{reportId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /communityPosts/{postId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+
+      match /contributions/{contributionId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+    }
   }
 }
