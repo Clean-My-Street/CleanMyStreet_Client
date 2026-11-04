@@ -25,19 +25,30 @@ export function FirstPage(): JSX.Element {
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [homeAddress, setHomeAddress] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
 
   const { width } = useWindowDimensions();
 
   const horizontalPadding = Math.min(50, Math.max(20, width * 0.1));
   const subtitleFontSize = Math.min(40, Math.max(28, width * 0.105));
 
+  function switchForm(creatingAccount: boolean) {
+    setIsCreatingAccount(creatingAccount);
+    setIsPasswordVisible(false);
+    setIsConfirmPasswordVisible(false);
+    setShowRegisterPrompt(false);
+  }
+
   async function handleAuthentication() {
     const cleanEmail = email.trim();
+
+    setShowRegisterPrompt(false);
 
     // Validate required fields.
     if (!cleanEmail || !password) {
@@ -56,6 +67,11 @@ export function FirstPage(): JSX.Element {
     if (isCreatingAccount) {
       if (!fullName.trim()) {
         Alert.alert('Missing name', 'Please enter your full name.');
+        return;
+      }
+
+      if (!homeAddress.trim()) {
+        Alert.alert('Missing address', 'Please enter your home address.');
         return;
       }
 
@@ -89,7 +105,7 @@ export function FirstPage(): JSX.Element {
 
       if (isCreatingAccount) {
         // The root layout's auth guard moves the user to Home once signed in.
-        await registerWithEmail(fullName, cleanEmail, password);
+        await registerWithEmail(fullName, cleanEmail, password, homeAddress);
 
         Alert.alert(
           'Account created',
@@ -99,6 +115,16 @@ export function FirstPage(): JSX.Element {
         await loginWithEmail(cleanEmail, password);
       }
     } catch (error: any) {
+      // Firebase can't say whether the email or the password was wrong, so
+      // point the user at registration instead of showing an error.
+      if (
+        !isCreatingAccount &&
+        ['auth/invalid-credential', 'auth/user-not-found', 'auth/wrong-password'].includes(error.code)
+      ) {
+        setShowRegisterPrompt(true);
+        return;
+      }
+
       let message = 'Something went wrong. Please try again.';
 
       switch (error.code) {
@@ -112,12 +138,6 @@ export function FirstPage(): JSX.Element {
 
         case 'auth/weak-password':
           message = 'Your password is too weak. Use at least 6 characters.';
-          break;
-
-        case 'auth/invalid-credential':
-        case 'auth/user-not-found':
-        case 'auth/wrong-password':
-          message = 'Incorrect email or password.';
           break;
 
         case 'auth/too-many-requests':
@@ -201,7 +221,7 @@ export function FirstPage(): JSX.Element {
           <Text style={styles.formIntro}>
             {isCreatingAccount
               ? 'Join your community and help restore local spaces'
-              : 'Log In or Create an Account'}
+              : 'Log in to your registered account, or create one to report dumping sites and fund cleanups'}
           </Text>
 
           <View style={styles.buttonContainer}>
@@ -213,11 +233,7 @@ export function FirstPage(): JSX.Element {
                   : styles.inactiveLoginButton,
               ]}
               disabled={isSubmitting}
-              onPress={() => {
-                setIsCreatingAccount(false);
-                setIsPasswordVisible(false);
-                setIsConfirmPasswordVisible(false);
-              }}
+              onPress={() => switchForm(false)}
             >
               <Text
                 style={[
@@ -235,11 +251,7 @@ export function FirstPage(): JSX.Element {
                 isCreatingAccount && styles.selectedCreateButton,
               ]}
               disabled={isSubmitting}
-              onPress={() => {
-                setIsCreatingAccount(true);
-                setIsPasswordVisible(false);
-                setIsConfirmPasswordVisible(false);
-              }}
+              onPress={() => switchForm(true)}
             >
               <Text
                 style={[
@@ -255,6 +267,14 @@ export function FirstPage(): JSX.Element {
           <View style={styles.containerInput}>
             {isCreatingAccount && (
               <>
+                <View style={styles.noticeBox}>
+                  <Text style={styles.noticeTitle}>What you need to register</Text>
+                  <Text style={styles.noticeText}>
+                    Your full name, email address, home address and a password
+                    of at least 6 characters. All fields are required.
+                  </Text>
+                </View>
+
                 <Text style={styles.inputText}>Full Name:</Text>
 
                 <TextInput
@@ -281,6 +301,23 @@ export function FirstPage(): JSX.Element {
               autoComplete="email"
               editable={!isSubmitting}
             />
+
+            {isCreatingAccount && (
+              <>
+                <Text style={styles.inputText}>Home Address:</Text>
+
+                <TextInput
+                  style={styles.inputStyles}
+                  placeholder="12 Sydenham Rd, Durban"
+                  value={homeAddress}
+                  onChangeText={setHomeAddress}
+                  autoCapitalize="words"
+                  autoComplete="street-address"
+                  textContentType="fullStreetAddress"
+                  editable={!isSubmitting}
+                />
+              </>
+            )}
 
             <Text style={styles.inputText}>Password:</Text>
 
@@ -353,6 +390,24 @@ export function FirstPage(): JSX.Element {
               </>
             )}
           </View>
+
+          {showRegisterPrompt && (
+            <View style={styles.noticeBox} accessibilityLiveRegion="polite">
+              <Text style={styles.noticeTitle}>Register to continue</Text>
+              <Text style={styles.noticeText}>
+                We couldn't match that email and password to an account. Check
+                your details, or create an account to start using
+                CleanMyStreet.
+              </Text>
+              <TouchableOpacity
+                style={styles.registerPromptButton}
+                onPress={() => switchForm(true)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.buttonText1}>Create an Account</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <View style={styles.submitContainer}>
             <TouchableOpacity
@@ -448,6 +503,33 @@ const styles = StyleSheet.create({
   containerInput: {
     width: '100%',
     marginTop: 20,
+  },
+  noticeBox: {
+    width: '100%',
+    padding: 12,
+    marginBottom: 15,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#1F7A3F',
+    backgroundColor: '#E4F4E9',
+  },
+  noticeTitle: {
+    color: '#124A2A',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  noticeText: {
+    color: '#17201A',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  registerPromptButton: {
+    backgroundColor: '#1F7A3F',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 12,
+    alignItems: 'center',
   },
   inputStyles: {
     borderWidth: 1,

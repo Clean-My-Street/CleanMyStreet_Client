@@ -144,10 +144,10 @@ export default function ReportDumping(): JSX.Element {
                   onPress={takePhoto}
                   disabled={!cameraReady || isTakingPhoto}
                   accessibilityRole="button"
-                  accessibilityLabel="Take report photo"
+                  accessibilityLabel="Take a picture"
                 >
                   <Text style={styles.closeCameraText}>
-                    {isTakingPhoto ? "Capturing..." : "Take Photo"}
+                    {isTakingPhoto ? "Capturing..." : "Take a Picture"}
                   </Text>
                 </Pressable>
               </View>
@@ -162,28 +162,31 @@ export default function ReportDumping(): JSX.Element {
                 </Pressable>
               </View>
             ) : (
-              <Pressable style={styles.cameraButton} onPress={openCamera}>
-                <Svg
-                  width={150}
-                  height={140}
-                  viewBox="0 0 150 140"
-                  accessibilityLabel="Camera"
-                >
+              <Pressable
+                style={styles.cameraButton}
+                onPress={openCamera}
+                accessibilityRole="button"
+                accessibilityLabel="Take a picture"
+              >
+                <Svg width={150} height={140} viewBox="0 0 150 140">
                   <Path
                     d="M20 48c0-8 6-14 14-14h13l13-18h45l13 18h13c8 0 14 6 14 14v62c0 8-6 14-14 14H34c-8 0-14-6-14-14V48Z"
                     fill="none"
-                    stroke="#929292"
-                    strokeWidth={1.2}
+                    stroke="#1F7A3F"
+                    strokeWidth={2}
                   />
                   <Circle
                     cx={75}
                     cy={77}
                     r={29}
                     fill="none"
-                    stroke="#929292"
-                    strokeWidth={1.2}
+                    stroke="#1F7A3F"
+                    strokeWidth={2}
                   />
                 </Svg>
+                <View style={styles.cameraLabel}>
+                  <Text style={styles.closeCameraText}>Take a Picture</Text>
+                </View>
               </Pressable>
             )}
           </View>
@@ -337,16 +340,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  cameraIcon: {
-    color: "#17201A",
-    fontSize: 48,
-    marginBottom: 8,
-  },
-
-  cameraText: {
-    color: "#17201A",
-    fontSize: 13,
-    fontWeight: "600",
+  cameraLabel: {
+    backgroundColor: "#1F7A3F",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 7,
+    marginTop: 8,
   },
 
   /* CAMERA */

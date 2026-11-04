@@ -1,4 +1,4 @@
-import { faCamera, faComments, faEnvelope, faHome, faNewspaper, faPhone, faUser } from '@fortawesome/free-solid-svg-icons';
+import { faCamera, faComments, faEnvelope, faHome, faLocationDot, faNewspaper, faPhone, faUser } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -22,6 +22,7 @@ export default function EditProfile() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [bio, setBio] = useState('');
   const [email, setEmail] = useState(user?.email ?? '');
+  const [homeAddress, setHomeAddress] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -78,6 +79,13 @@ export default function EditProfile() {
     setEmail('');
   }
 
+  // Load the user's home address.
+  if (profileData.homeAddress) {
+    setHomeAddress(profileData.homeAddress);
+  } else {
+    setHomeAddress('');
+  }
+
   // Load the saved profile picture URL.
   if (profileData.profilePictureUrl) {
     setProfileImage(profileData.profilePictureUrl);
@@ -102,6 +110,7 @@ export default function EditProfile() {
   // These fields have not been saved yet.
   setPhoneNumber('');
   setBio('');
+  setHomeAddress('');
   setProfileImage(null);
 }
       } catch (error) {
@@ -165,6 +174,7 @@ const handleSave = async () => {
 
   const trimmedName = fullName.trim();
   const trimmedEmail = email.trim().toLowerCase();
+  const trimmedAddress = homeAddress.trim();
 
   if (!trimmedName) {
     Alert.alert("Name required", "Please enter your name.");
@@ -173,6 +183,11 @@ const handleSave = async () => {
 
   if (!trimmedEmail) {
     Alert.alert("Email required", "Please enter your email address.");
+    return;
+  }
+
+  if (!trimmedAddress) {
+    Alert.alert("Address required", "Please enter your home address.");
     return;
   }
 
@@ -232,6 +247,7 @@ await setDoc(
     uid: user.uid,
     fullName: trimmedName,
     email: trimmedEmail,
+    homeAddress: trimmedAddress,
     phoneNumber: phoneNumber.trim(),
     bio: bio.trim(),
     profilePictureUrl,
@@ -341,6 +357,14 @@ console.log('Profile details and picture URL saved to Firestore.');
               <View style={styles.inputContainer}>
                 <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Enter your email" placeholderTextColor="#999999" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
                 <FontAwesomeIcon icon={faEnvelope} size={16} color="#17201A" />
+              </View>
+            </View>
+
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Home Address</Text>
+              <View style={styles.inputContainer}>
+                <TextInput style={styles.input} value={homeAddress} onChangeText={setHomeAddress} placeholder="Enter your home address" placeholderTextColor="#999999" autoCapitalize="words" autoComplete="street-address" textContentType="fullStreetAddress" />
+                <FontAwesomeIcon icon={faLocationDot} size={16} color="#17201A" />
               </View>
             </View>
 

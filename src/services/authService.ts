@@ -18,10 +18,12 @@ import { auth, db } from "./firebase";
 export async function registerWithEmail(
   fullName: string,
   email: string,
-  password: string
+  password: string,
+  homeAddress: string
 ) {
   const trimmedName = fullName.trim();
   const trimmedEmail = email.trim().toLowerCase();
+  const trimmedAddress = homeAddress.trim();
 
   // 1. Create the account in Firebase Authentication
   const userCredential = await createUserWithEmailAndPassword(
@@ -44,6 +46,7 @@ export async function registerWithEmail(
     uid: user.uid,
     fullName: trimmedName,
     email: trimmedEmail,
+    homeAddress: trimmedAddress,
     phoneNumber: "",
     bio: "",
     profilePictureUrl: null,

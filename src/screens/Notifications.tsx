@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
+import { feedColors as colors } from "../constants/feedColors";
 import { auth } from "../services/firebase";
 import {
   markNotificationsRead,
@@ -104,7 +105,11 @@ export default function Notifications(): JSX.Element {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <Text style={styles.backIcon}>‹</Text>
           </Pressable>
           <Image
@@ -158,7 +163,7 @@ export default function Notifications(): JSX.Element {
         >
           {isLoading ? (
             <View style={styles.emptyState}>
-              <ActivityIndicator color={colors.teal} />
+              <ActivityIndicator color={colors.accent} />
               <Text style={styles.emptyText}>Loading notifications...</Text>
             </View>
           ) : loadError ? (
@@ -201,7 +206,7 @@ export default function Notifications(): JSX.Element {
           ) : (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
-                <FontAwesomeIcon icon={faCheck} size={20} color={colors.teal} />
+                <FontAwesomeIcon icon={faCheck} size={20} color={colors.accent} />
               </View>
               <Text style={styles.emptyTitle}>You’re all caught up</Text>
               <Text style={styles.emptyText}>
@@ -215,13 +220,13 @@ export default function Notifications(): JSX.Element {
             onPress={() => router.push("/home")}
             accessibilityLabel="Go to Home"
           >
-            <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
+            <FontAwesomeIcon icon={faHome} size={20} color={colors.green} />
           </Pressable>
           <Pressable
             onPress={() => router.push("/news")}
             accessibilityLabel="View News"
           >
-            <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
+            <FontAwesomeIcon icon={faNewspaper} size={20} color={colors.green} />
           </Pressable>
 
           <Pressable
@@ -234,7 +239,7 @@ export default function Notifications(): JSX.Element {
             onPress={() => router.push("/community")}
             accessibilityLabel="Open community messages"
           >
-            <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
+            <FontAwesomeIcon icon={faUsers} size={20} color={colors.green} />
           </Pressable>
           <ProfileNavButton />
         </View>
@@ -242,15 +247,6 @@ export default function Notifications(): JSX.Element {
     </SafeAreaView>
   );
 }
-
-const colors = {
-  green: "#124A2A",
-  teal: "#36B86B",
-  tealDark: "#124A2A",
-  tealPale: "#eeeeee",
-  border: "#dce7dc",
-  background: "#f5f8f5",
-};
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
@@ -266,7 +262,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   logo: { width: 26, height: 26, resizeMode: "contain" },
-  headerTitle: { color: colors.green, fontSize: 16, fontWeight: "700" },
+  headerTitle: { color: colors.ink, fontSize: 16, fontWeight: "700" },
   actionsRow: {
     minHeight: 46,
     paddingHorizontal: 18,
@@ -275,19 +271,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   backIcon: {
-    color: "#17201A",
+    color: colors.ink,
     fontSize: 32,
     lineHeight: 32,
     marginRight: 8,
   },
   unreadCount: {
-    backgroundColor: colors.tealPale,
+    backgroundColor: colors.accentPale,
     borderRadius: 12,
     paddingHorizontal: 9,
     paddingVertical: 4,
   },
-  unreadCountText: { color: colors.tealDark, fontSize: 11, fontWeight: "700" },
-  markAllText: { color: colors.tealDark, fontSize: 12, fontWeight: "700" },
+  unreadCountText: { color: colors.green, fontSize: 11, fontWeight: "700" },
+  markAllText: { color: colors.green, fontSize: 12, fontWeight: "700" },
   filterRow: {
     flexDirection: "row",
     gap: 8,
@@ -309,7 +305,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.green,
     borderColor: colors.green,
   },
-  filterText: { color: colors.green, fontSize: 11, fontWeight: "600" },
+  filterText: { color: colors.ink, fontSize: 11, fontWeight: "600" },
   filterTextSelected: { color: "#FFFFFF" },
   notificationList: { paddingHorizontal: 16, paddingBottom: 18, flexGrow: 1 },
   notificationCard: {
@@ -324,38 +320,38 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    shadowColor: "#23424A",
+    shadowColor: colors.ink,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 5,
     elevation: 2,
   },
   notificationUnread: {
-    backgroundColor: colors.tealPale,
-    borderColor: "#C6E7E3",
+    backgroundColor: colors.accentPale,
+    borderColor: colors.accentBorder,
   },
   avatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.teal,
+    backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: { color: "#FFFFFF", fontSize: 10, fontWeight: "800" },
   notificationCopy: { flex: 1, gap: 5 },
   notificationTitle: {
-    color: colors.green,
+    color: colors.ink,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: "600",
   },
-  notificationTime: { color: colors.green, fontSize: 10 },
+  notificationTime: { color: colors.muted, fontSize: 10 },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.teal,
+    backgroundColor: colors.accent,
   },
   emptyState: {
     flex: 1,
@@ -367,14 +363,14 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.tealPale,
+    backgroundColor: colors.accentPale,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
   },
-  emptyTitle: { color: colors.green, fontSize: 15, fontWeight: "700" },
+  emptyTitle: { color: colors.ink, fontSize: 15, fontWeight: "700" },
   emptyText: {
-    color: colors.green,
+    color: colors.muted,
     fontSize: 12,
     marginTop: 5,
     textAlign: "center",
@@ -394,12 +390,12 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#68706A",
+    borderColor: colors.muted,
     alignItems: "center",
     justifyContent: "center",
   },
   addButtonText: {
-    color: "#17201A",
+    color: colors.ink,
     fontSize: 28,
     fontWeight: "300",
     lineHeight: 30,

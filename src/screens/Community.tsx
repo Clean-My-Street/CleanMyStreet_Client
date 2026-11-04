@@ -1,9 +1,7 @@
 import {
-  faArrowLeft,
   faComment,
   faHeart,
   faHouse,
-  faLocationDot,
   faNewspaper,
   faPaperPlane,
   faUsers,
@@ -13,6 +11,7 @@ import { useRouter } from "expo-router";
 import { JSX, useMemo, useState } from "react";
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +21,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
+import { feedColors as colors } from "../constants/feedColors";
 import { createCommunityPost } from "../services/api";
 
 type Category = "Cleanup" | "Tips" | "Question";
@@ -168,15 +168,15 @@ export default function Community(): JSX.Element {
         <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
-            style={styles.backButton}
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <FontAwesomeIcon icon={faArrowLeft} size={15} color={colors.ink} />
+            <Text style={styles.backIcon}>‹</Text>
           </Pressable>
-          <View style={styles.communityMark}>
-            <FontAwesomeIcon icon={faLocationDot} size={15} color="#FFFFFF" />
-          </View>
+          <Image
+            source={require("../../assets/images/cleanmystreet.png")}
+            style={styles.logo}
+          />
           <Text style={styles.headerTitle}>Community</Text>
         </View>
 
@@ -215,7 +215,7 @@ export default function Community(): JSX.Element {
         >
           <View style={styles.composerCard}>
             <View style={styles.composerTop}>
-              <Avatar initials="MI" color={colors.green} size={31} />
+              <Avatar initials="MI" />
               <TextInput
                 value={draft}
                 onChangeText={setDraft}
@@ -284,11 +284,7 @@ export default function Community(): JSX.Element {
           {visiblePosts.map((post) => (
             <View key={post.id} style={styles.postCard}>
               <View style={styles.postHeader}>
-                <Avatar
-                  initials={post.initials}
-                  color={avatarColor(post.initials)}
-                  size={34}
-                />
+                <Avatar initials={post.initials} />
                 <View style={styles.postAuthor}>
                   <Text style={styles.authorName}>{post.name}</Text>
                   <Text style={styles.postTime}>{post.time}</Text>
@@ -413,88 +409,47 @@ export default function Community(): JSX.Element {
   );
 }
 
-function Avatar({
-  initials,
-  color,
-  size,
-}: {
-  initials: string;
-  color: string;
-  size: number;
-}): JSX.Element {
+function Avatar({ initials }: { initials: string }): JSX.Element {
   return (
-    <View
-      style={[
-        styles.avatar,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: color,
-        },
-      ]}
-    >
-      <Text style={[styles.avatarText, size < 30 && styles.smallAvatarText]}>
-        {initials}
-      </Text>
+    <View style={styles.avatar}>
+      <Text style={styles.avatarText}>{initials}</Text>
     </View>
   );
 }
-
-function avatarColor(initials: string): string {
-  const colorsByInitial: Record<string, string> = {
-    TM: "#C66A19",
-    JN: "#3475B9",
-    LK: "#9852AF",
-    MI: "#21834B",
-  };
-  return colorsByInitial[initials] ?? "#65766B";
-}
-
-const colors = {
-  green: "#187A43",
-  darkGreen: "#124A2A",
-  ink: "#17201A",
-  muted: "#818A84",
-  border: "#E1E8E2",
-  background: "#F3F6F4",
-};
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
   screen: { flex: 1, backgroundColor: colors.background },
   header: {
     height: 56,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    gap: 12,
   },
-  backButton: { width: 25, height: 38, justifyContent: "center" },
-  communityMark: {
-    width: 25,
-    height: 25,
-    borderRadius: 13,
-    backgroundColor: "#58B878",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 6,
+  backIcon: {
+    color: colors.ink,
+    fontSize: 32,
+    lineHeight: 32,
+    marginRight: 8,
   },
-  headerTitle: { color: colors.ink, fontSize: 14, fontWeight: "600" },
+  logo: { width: 26, height: 26, resizeMode: "contain" },
+  headerTitle: { color: colors.ink, fontSize: 16, fontWeight: "700" },
   filterRow: {
     flexDirection: "row",
-    width: "100%",
-    paddingHorizontal: 15,
-    paddingBottom: 8,
-    gap: 7,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 13,
+    paddingBottom: 13,
   },
   filterChip: {
     flex: 1,
     minWidth: 0,
-    minHeight: 36,
-    paddingHorizontal: 4,
+    minHeight: 34,
+    paddingHorizontal: 8,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
@@ -502,92 +457,110 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  selectedFilterChip: { backgroundColor: "#101512", borderColor: "#101512" },
-  filterText: { color: colors.ink, fontSize: 9, fontWeight: "500" },
+  selectedFilterChip: {
+    backgroundColor: colors.green,
+    borderColor: colors.green,
+  },
+  filterText: { color: colors.ink, fontSize: 11, fontWeight: "600" },
   selectedFilterText: { color: "#FFFFFF" },
-  feed: { paddingHorizontal: 15, paddingBottom: 14, gap: 8 },
+  feed: { paddingHorizontal: 16, paddingBottom: 18, gap: 12 },
   composerCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 9,
-    marginBottom: 0,
+    padding: 12,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  composerTop: { flexDirection: "row", alignItems: "center", gap: 8 },
-  avatar: { alignItems: "center", justifyContent: "center" },
-  avatarText: { color: "#FFFFFF", fontSize: 9, fontWeight: "700" },
-  smallAvatarText: { fontSize: 7 },
+  composerTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: "#FFFFFF", fontSize: 10, fontWeight: "800" },
   postInput: {
     flex: 1,
-    minHeight: 33,
-    maxHeight: 68,
+    minHeight: 36,
+    maxHeight: 76,
     borderRadius: 9,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: "#F4F6F5",
+    backgroundColor: colors.inputBackground,
     color: colors.ink,
-    fontSize: 9,
+    fontSize: 12,
   },
   composerActions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 7,
+    marginTop: 8,
   },
   categoryPicker: { flexDirection: "row", gap: 6, marginTop: 8 },
   categoryOption: {
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 13,
-    backgroundColor: "#F2F5F3",
+    backgroundColor: colors.inputBackground,
   },
-  categoryOptionSelected: { backgroundColor: "#E1F2E6" },
-  categoryOptionText: { color: colors.ink, fontSize: 9 },
-  categoryOptionTextSelected: { color: colors.darkGreen, fontWeight: "700" },
+  categoryOptionSelected: { backgroundColor: colors.accentPale },
+  categoryOptionText: { color: colors.ink, fontSize: 11 },
+  categoryOptionTextSelected: { color: colors.green, fontWeight: "700" },
   categoryButton: {
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 13,
-    backgroundColor: "#F0F3F1",
+    backgroundColor: colors.inputBackground,
   },
-  categoryButtonText: { color: colors.ink, fontSize: 9 },
+  categoryButtonText: { color: colors.ink, fontSize: 11 },
   postButton: {
-    minWidth: 40,
+    minWidth: 48,
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 14,
     backgroundColor: colors.green,
   },
   postButtonDisabled: { opacity: 0.75 },
-  postButtonText: { color: "#FFFFFF", fontSize: 9, fontWeight: "700" },
+  postButtonText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
   postCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 9,
+    padding: 12,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  postHeader: { flexDirection: "row", alignItems: "center", gap: 7 },
+  postHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
   postAuthor: { flex: 1 },
-  authorName: { color: colors.ink, fontSize: 10, fontWeight: "700" },
-  postTime: { color: "#9AA19C", fontSize: 8, marginTop: 1 },
+  authorName: { color: colors.ink, fontSize: 12, fontWeight: "600" },
+  postTime: { color: colors.muted, fontSize: 10, marginTop: 2 },
   postCategory: {
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    backgroundColor: "#E4F4E9",
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    backgroundColor: colors.accentPale,
   },
-  postCategoryText: { color: colors.green, fontSize: 8, fontWeight: "600" },
+  postCategoryText: { color: colors.green, fontSize: 11, fontWeight: "700" },
   postBody: {
     color: colors.ink,
-    fontSize: 9,
-    lineHeight: 14,
-    marginTop: 7,
-    marginBottom: 6,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 8,
+    marginBottom: 8,
   },
-  postDivider: { height: 1, backgroundColor: "#EDF0EE", marginBottom: 5 },
+  postDivider: { height: 1, backgroundColor: colors.border, marginBottom: 6 },
   postActions: {
     flexDirection: "row",
     alignItems: "center",
@@ -596,15 +569,15 @@ const styles = StyleSheet.create({
   },
   postAction: { flexDirection: "row", alignItems: "center", gap: 4 },
   likedAction: { opacity: 1 },
-  actionCount: { color: colors.muted, fontSize: 8 },
+  actionCount: { color: colors.muted, fontSize: 10 },
   commentBubble: {
-    backgroundColor: "#F2F5F3",
+    backgroundColor: colors.inputBackground,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    marginTop: 5,
+    marginTop: 6,
   },
-  commentText: { color: colors.ink, fontSize: 8 },
+  commentText: { color: colors.ink, fontSize: 11 },
   replyRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -614,15 +587,15 @@ const styles = StyleSheet.create({
   },
   replyInput: {
     flex: 1,
-    height: 34,
-    backgroundColor: "#F4F6F5",
+    height: 36,
+    backgroundColor: colors.inputBackground,
     borderRadius: 9,
     paddingHorizontal: 9,
-    fontSize: 9,
+    fontSize: 12,
     color: colors.ink,
   },
   bottomNav: {
-    minHeight: 54,
+    minHeight: 68,
     borderTopWidth: 1,
     borderTopColor: "#E8E8E8",
     backgroundColor: "#FFFFFF",
@@ -632,18 +605,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   addButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
-    borderColor: "#68706A",
+    borderColor: colors.muted,
     alignItems: "center",
     justifyContent: "center",
   },
   addButtonText: {
     color: colors.ink,
-    fontSize: 25,
+    fontSize: 28,
     fontWeight: "300",
-    lineHeight: 28,
+    lineHeight: 30,
   },
 });
