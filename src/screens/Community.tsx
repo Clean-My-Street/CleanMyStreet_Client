@@ -68,7 +68,7 @@ const starterPosts: CommunityPost[] = [
     initials: "LK",
     time: "1d ago",
     category: "Question",
-    body: "Does anyone know if the Glenwood Park cleanup is still happening this weekend?",
+    body: "Is the Glenwood Park cleanup a good site to contribute to?",
     likes: 5,
     comments: [],
   },
