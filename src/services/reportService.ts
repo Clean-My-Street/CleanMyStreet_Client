@@ -1,4 +1,12 @@
-import { collection, doc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  type Unsubscribe,
+} from "firebase/firestore";
 import {
   deleteObject,
   getDownloadURL,
@@ -11,6 +19,17 @@ import { readLocalImage } from "../utils/readLocalImage";
 
 export type WasteType = "Household" | "Construction" | "Illegal Dumping";
 
+export type ReportedSite = {
+  id: string;
+  description: string;
+  wasteType: WasteType;
+  latitude: number;
+  longitude: number;
+  imageUrl: string | null;
+  status: string;
+  createdAt: Date;
+};
+
 export type SubmitDumpingReportInput = {
   description: string;
   wasteType: WasteType;
@@ -18,6 +37,59 @@ export type SubmitDumpingReportInput = {
   longitude: number;
   photoUri: string;
 };
+
+export function subscribeRecentReportedSites(
+  onSites: (sites: ReportedSite[]) => void,
+  onError: (error: Error) => void,
+): Unsubscribe {
+  const reportsQuery = query(
+    collection(db, "reports"),
+    orderBy("createdAt", "desc"),
+    limit(100),
+  );
+
+  return onSnapshot(
+    reportsQuery,
+    (snapshot) => {
+      const sites = snapshot.docs.flatMap((report) => {
+        const data = report.data();
+        const location = data.location;
+        if (
+          typeof data.description !== "string" ||
+          !["Household", "Construction", "Illegal Dumping"].includes(
+            data.wasteType,
+          ) ||
+          typeof location !== "object" ||
+          location === null ||
+          typeof location.latitude !== "number" ||
+          typeof location.longitude !== "number" ||
+          typeof data.createdAt?.toDate !== "function"
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            id: report.id,
+            description: data.description,
+            wasteType: data.wasteType as WasteType,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            imageUrl:
+              typeof data.imageUrl === "string" && data.imageUrl.trim()
+                ? data.imageUrl
+                : null,
+            status:
+              typeof data.status === "string" ? data.status : "reported",
+            createdAt: data.createdAt.toDate(),
+          },
+        ];
+      });
+      onSites(sites);
+    },
+    onError,
+  );
+}
 
 export async function submitDumpingReport(
   input: SubmitDumpingReportInput,

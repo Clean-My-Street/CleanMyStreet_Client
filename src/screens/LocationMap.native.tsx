@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle, useRef } from "react";
-import { StyleSheet } from "react-native";
+import Constants from "expo-constants";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import MapView, {
   Marker,
   type MapPressEvent,
@@ -46,6 +47,22 @@ const LocationMap = forwardRef<LocationMapHandle, LocationMapProps>(
       onSelectLocation(nativeEvent.coordinate);
     };
 
+    if (
+      Platform.OS === "android" &&
+      Constants.expoConfig?.extra?.googleMapsApiKeyConfigured !== true
+    ) {
+      return (
+        <View style={styles.fallback}>
+          <Text style={styles.title}>Map is unavailable without an API key</Text>
+          <Text style={styles.coordinates}>
+            {coordinates
+              ? `${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}`
+              : "Use your device location to set the report location."}
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <MapView
         ref={mapRef}
@@ -72,5 +89,27 @@ const LocationMap = forwardRef<LocationMapHandle, LocationMapProps>(
     );
   },
 );
+
+const styles = StyleSheet.create({
+  fallback: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    backgroundColor: "#E5E5E5",
+  },
+  title: {
+    color: "#17201A",
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  coordinates: {
+    color: "#68706A",
+    fontSize: 11,
+    marginTop: 4,
+    textAlign: "center",
+  },
+});
 
 export default LocationMap;

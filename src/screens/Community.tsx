@@ -23,6 +23,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
 import { feedColors as colors } from "../constants/feedColors";
 import { createCommunityPost } from "../services/api";
+import type { CommunityGroup } from "../services/communityGroupService";
 
 type Category = "Cleanup" | "Tips" | "Question";
 type Filter = "All" | Category;
@@ -74,7 +75,13 @@ const starterPosts: CommunityPost[] = [
   },
 ];
 
-export default function Community(): JSX.Element {
+export default function Community({
+  communityGroup,
+  onChangeGroup,
+}: {
+  communityGroup?: CommunityGroup | null;
+  onChangeGroup?: () => void;
+}): JSX.Element {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
   const [posts, setPosts] = useState(starterPosts);
@@ -179,6 +186,32 @@ export default function Community(): JSX.Element {
           />
           <Text style={styles.headerTitle}>Community</Text>
         </View>
+
+        {communityGroup && (
+          <View style={styles.groupBanner}>
+            <View style={styles.groupBannerText}>
+              <Text style={styles.groupBannerEyebrow}>YOUR COMMUNITY</Text>
+              <Text style={styles.groupBannerTitle}>
+                {communityGroup.name}
+              </Text>
+              <Text style={styles.groupBannerArea}>{communityGroup.area}</Text>
+              <Text style={styles.groupBannerNote}>
+                Demo membership is stored on this device. Posts use the shared
+                community feed until group-specific posts are supported.
+              </Text>
+            </View>
+            {onChangeGroup && (
+              <Pressable
+                onPress={onChangeGroup}
+                accessibilityRole="button"
+                accessibilityLabel="Find another community group"
+                style={styles.changeGroupButton}
+              >
+                <Text style={styles.changeGroupText}>Groups</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
 
         {/* Direct messages are hidden until conversations have a backend. */}
         <View style={styles.filterRow}>
@@ -438,6 +471,44 @@ const styles = StyleSheet.create({
   },
   logo: { width: 26, height: 26, resizeMode: "contain" },
   headerTitle: { color: colors.ink, fontSize: 16, fontWeight: "700" },
+  groupBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#EAF5ED",
+  },
+  groupBannerText: { flex: 1 },
+  groupBannerEyebrow: {
+    color: colors.green,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  groupBannerTitle: {
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: 3,
+  },
+  groupBannerArea: { color: colors.muted, fontSize: 10, marginTop: 2 },
+  groupBannerNote: {
+    color: colors.muted,
+    fontSize: 10,
+    lineHeight: 14,
+    marginTop: 6,
+  },
+  changeGroupButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 7,
+    backgroundColor: "#FFFFFF",
+  },
+  changeGroupText: { color: colors.green, fontSize: 11, fontWeight: "700" },
   filterRow: {
     flexDirection: "row",
     gap: 8,

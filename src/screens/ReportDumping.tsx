@@ -168,7 +168,7 @@ export default function ReportDumping(): JSX.Element {
                 accessibilityRole="button"
                 accessibilityLabel="Take a picture"
               >
-                <Svg width={150} height={140} viewBox="0 0 150 140">
+                <Svg width="60%" height={140} viewBox="0 0 150 140">
                   <Path
                     d="M20 48c0-8 6-14 14-14h13l13-18h45l13 18h13c8 0 14 6 14 14v62c0 8-6 14-14 14H34c-8 0-14-6-14-14V48Z"
                     fill="none"
@@ -176,8 +176,8 @@ export default function ReportDumping(): JSX.Element {
                     strokeWidth={2}
                   />
                   <Circle
-                    cx={75}
-                    cy={77}
+                    cx={82.5}
+                    cy={79}
                     r={29}
                     fill="none"
                     stroke="#1F7A3F"
@@ -200,7 +200,7 @@ export default function ReportDumping(): JSX.Element {
 
           {/* INFORMATION */}
           <Text style={styles.notificationText}>
-            You'll be notified as your report is reviewed and cleanup campaigns
+            You&apos;ll be notified as your report is reviewed and cleanup campaigns
             is created
           </Text>
         </ScrollView>

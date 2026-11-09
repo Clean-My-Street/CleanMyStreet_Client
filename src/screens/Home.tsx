@@ -7,6 +7,38 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProfileNavButton } from '../components/ProfileNavButton';
 import { shareFeaturedCampaign } from '../services/shareService';
 
+const campaigns = [
+  {
+    id: 'musgrave-road-cleanup',
+    title: 'Musgrave Rd Cleanup',
+    description: 'Help remove household waste near the Botanic Gardens entrance.',
+    image: require('../../assets/images/dumpingsite.jpeg'),
+    raised: 6500,
+    goal: 10000,
+    status: 'Funding open',
+    isFeatured: true,
+  },
+  {
+    id: 'riverbank-restoration-example',
+    title: 'Riverbank Restoration',
+    description: 'A sample campaign to clear litter from a local riverbank.',
+    image: require('../../assets/images/17.jpeg'),
+    raised: 3200,
+    goal: 8000,
+    status: 'Funding open',
+    isFeatured: false,
+  },
+  {
+    id: 'glenwood-park-cleanup-example',
+    title: 'Glenwood Park Cleanup',
+    description: 'A sample update showing a completed park clean-up.',
+    image: require('../../assets/images/20.jpeg'),
+    raised: 5000,
+    goal: 5000,
+    status: 'Cleaned',
+    isFeatured: false,
+  },
+];
 
 export default function Home(): JSX.Element {
   const router = useRouter();
@@ -60,83 +92,65 @@ export default function Home(): JSX.Element {
           </View>
 
           <Text style={styles.sectionTitle}>Active Campaigns</Text>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.campaignTitle}>Musgrave Rd Cleanup</Text>
-            <View style={styles.progressTrack}>
-              <View style={styles.progressFill} />
+          {campaigns.map((campaign, index) => (
+            <View key={campaign.id}>
+              <View style={styles.sectionCard}>
+                <Image source={campaign.image} style={styles.campaignImage} />
+                <View style={styles.campaignHeading}>
+                  <Text style={styles.campaignTitle}>{campaign.title}</Text>
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusText}>{campaign.status}</Text>
+                  </View>
+                </View>
+                <Text style={styles.campaignDescription} numberOfLines={2}>
+                  {campaign.description}
+                </Text>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${Math.min(
+                          100,
+                          Math.round((campaign.raised / campaign.goal) * 100),
+                        )}%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.campaignMeta}>
+                  <Text style={styles.metaText}>
+                    R{campaign.raised.toLocaleString('en-ZA')} of R
+                    {campaign.goal.toLocaleString('en-ZA')}
+                  </Text>
+                  <Text style={styles.metaText}>
+                    {Math.round((campaign.raised / campaign.goal) * 100)}%
+                  </Text>
+                </View>
+                {campaign.isFeatured ? (
+                  <View style={styles.campaignActions}>
+                    <Pressable
+                      style={[styles.campaignButton, styles.primaryButton]}
+                      onPress={() => router.push("/previewcampaign")}
+                    >
+                      <Text style={styles.primaryButtonText}>Contribute</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.campaignButton, styles.shareButton]}
+                      onPress={shareFeaturedCampaign}
+                    >
+                      <Text style={styles.secondaryButtonText}>Share</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Text style={styles.sampleCampaignNote}>
+                    Example campaign · preview only
+                  </Text>
+                )}
+              </View>
+              {index < 2 && <Advertisement />}
             </View>
-            <View style={styles.campaignMeta}>
-              <Text style={styles.metaText}>R6,500 of R10,000</Text>
-              <Text style={styles.metaText}>65%</Text>
-            </View>
-            <View style={styles.campaignActions}>
-              <Pressable
-                style={[styles.campaignButton, styles.primaryButton]}
-                onPress={() => {
-                  router.push("/previewcampaign");
-                }}
-              >
-                <Text style={styles.primaryButtonText}>Contribute</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.campaignButton, styles.shareButton]}
-                onPress={shareFeaturedCampaign}
-              >
-                <Text style={styles.secondaryButtonText}>Share</Text>
-              </Pressable>
-            </View>
-          </View>
-          <Advertisement />
-          <View style={styles.sectionCard}>
-            <Text style={styles.campaignTitle}>Musgrave Rd Cleanup</Text>
-            <View style={styles.progressTrack}>
-              <View style={styles.progressFill} />
-            </View>
-            <View style={styles.campaignMeta}>
-              <Text style={styles.metaText}>R6,500 of R10,000</Text>
-              <Text style={styles.metaText}>65%</Text>
-            </View>
-            <View style={styles.campaignActions}>
-              <Pressable
-                style={[styles.campaignButton, styles.primaryButton]}
-                onPress={() => router.push("/previewcampaign")}
-              >
-                <Text style={styles.primaryButtonText}>Contribute</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.campaignButton, styles.shareButton]}
-                onPress={shareFeaturedCampaign}
-              >
-                <Text style={styles.secondaryButtonText}>Share</Text>
-              </Pressable>
-            </View>
-          </View>
-          <Advertisement />
-          <View style={styles.sectionCard}>
-            <Text style={styles.campaignTitle}>Musgrave Rd Cleanup</Text>
-            <View style={styles.progressTrack}>
-              <View style={styles.progressFill} />
-            </View>
-            <View style={styles.campaignMeta}>
-              <Text style={styles.metaText}>R6,500 of R10,000</Text>
-              <Text style={styles.metaText}>65%</Text>
-            </View>
-            <View style={styles.campaignActions}>
-              <Pressable
-                style={[styles.campaignButton, styles.primaryButton]}
-                onPress={() => router.push("/previewcampaign")}
-              >
-                <Text style={styles.primaryButtonText}>Contribute</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.campaignButton, styles.shareButton]}
-                onPress={shareFeaturedCampaign}
-              >
-                <Text style={styles.secondaryButtonText}>Share</Text>
-              </Pressable>
-            </View>
-          </View>
+          ))}
         </ScrollView>
 
         <View style={styles.bottomNav}>
@@ -191,15 +205,19 @@ function Advertisement(): JSX.Element {
   return (
     <View style={styles.advertisementCard}>
       <View style={styles.advertisementBrand}>
-        <View style={styles.advertisementLogo}>
-          <Text style={styles.advertisementLogoText}>CM</Text>
-        </View>
         <Text style={styles.advertisementBrandName}>CleanMyStreetZA</Text>
+        <Text style={styles.advertisementTitle}>Advertise Here</Text>
+        <Text style={styles.advertisementEmail}>
+          Email: Ads@cleanmystreet.com
+        </Text>
       </View>
-      <Text style={styles.advertisementTitle}>Advertise Here</Text>
-      <Text style={styles.advertisementEmail}>
-        Email: Ads@cleanmystreet.com
-      </Text>
+      <View style={styles.advertisementLogo}>
+        <Image
+          source={require('../../assets/images/cleanmystreet.png')}
+          style={styles.advertisementLogoImage}
+          accessibilityLabel="CleanMyStreet logo"
+        />
+      </View>
     </View>
   );
 }
@@ -223,24 +241,30 @@ const styles = StyleSheet.create({
   secondaryButtonText: { color: '#17201A', fontSize: 11, fontWeight: '600' },
   sectionTitle: { color: '#17201A', fontSize: 13, marginBottom: 8 },
   sectionCard: { backgroundColor: '#F1F1F1', borderRadius: 9, padding: 10, marginBottom: 18 },
-  advertisementCard: { backgroundColor: '#F1F1F1', borderRadius: 9, padding: 12, marginBottom: 18, minHeight: 96 },
-  advertisementBrand: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  advertisementLogo: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#36B86B', alignItems: 'center', justifyContent: 'center' },
-  advertisementLogoText: { color: '#FFFFFF', fontSize: 8, fontWeight: '800' },
-  advertisementBrandName: { color: '#17201A', fontSize: 10, marginLeft: 6 },
-  advertisementTitle: { color: '#17201A', fontSize: 13, marginBottom: 4 },
-  advertisementEmail: { color: '#17201A', fontSize: 11 },
+  advertisementCard: { backgroundColor: '#F1F1F1', borderRadius: 9, padding: 12, marginBottom: 18, minHeight: 104, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  advertisementBrand: { flex: 1, minWidth: 0 },
+  advertisementLogo: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  advertisementLogoImage: { width: 46, height: 46, resizeMode: 'contain' },
+  advertisementBrandName: { color: '#17201A', fontSize: 10, fontWeight: '600', marginBottom: 8 },
+  advertisementTitle: { color: '#17201A', fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  advertisementEmail: { color: '#17201A', fontSize: 11, flexWrap: 'wrap' },
   artworkPlaceholder: { height: 128, borderRadius: 6, backgroundColor: '#B7C6B9', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   dumpingSiteImage: { width: '100%', height: '100%', borderRadius: 6, resizeMode: 'cover' },
   siteRow: { backgroundColor: '#FFFFFF', borderRadius: 6, paddingVertical: 7, paddingHorizontal: 10, flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
   siteName: { color: '#17201A', fontSize: 11 },
   siteDistance: { color: '#17201A', fontSize: 11 },
-  campaignTitle: { color: '#17201A', fontSize: 12, marginBottom: 10 },
+  campaignImage: { width: '100%', height: 122, borderRadius: 6, resizeMode: 'cover', marginBottom: 10 },
+  campaignHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  campaignTitle: { flex: 1, color: '#17201A', fontSize: 12, fontWeight: '700', marginBottom: 6 },
+  statusBadge: { backgroundColor: '#E1F5E9', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+  statusText: { color: '#267B49', fontSize: 9, fontWeight: '700' },
+  campaignDescription: { color: '#4D554F', fontSize: 10, lineHeight: 14, marginBottom: 9 },
   progressTrack: { height: 5, borderRadius: 3, backgroundColor: '#D5D8D5', overflow: 'hidden' },
   progressFill: { width: '65%', height: '100%', backgroundColor: '#36B86B', borderRadius: 3 },
   campaignMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
   metaText: { color: '#17201A', fontSize: 10 },
   campaignActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  sampleCampaignNote: { color: '#68706A', fontSize: 9, marginTop: 10 },
   campaignButton: { flex: 1, minHeight: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   shareButton: { backgroundColor: '#FFFFFF' },
   bottomNav: { minHeight: 68, borderTopWidth: 1, borderTopColor: '#E8E8E8', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 10 },

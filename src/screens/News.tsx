@@ -6,7 +6,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
-import { JSX, useEffect, useRef, useState } from "react";
+import * as ExpoLocation from "expo-location";
+import { JSX, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -24,11 +25,44 @@ import {
   type NewsArticle,
   type NewsCategory,
 } from "../services/newsService";
+import {
+  subscribeRecentReportedSites,
+  type ReportedSite,
+} from "../services/reportService";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 
-type Filter = "All" | NewsCategory;
+type Filter = "All" | "Local News" | "Nearby Dumping Sites" | NewsCategory;
 
-const filters: Filter[] = ["All", ...NEWS_CATEGORIES];
+type NewsFeedItem =
+  | {
+      kind: "news";
+      id: string;
+      title: string;
+      story: string;
+      imageUrl: string | null;
+      publishedAt: Date;
+      category: NewsCategory;
+      article: NewsArticle;
+    }
+  | {
+      kind: "site";
+      id: string;
+      title: string;
+      story: string;
+      imageUrl: string | null;
+      publishedAt: Date;
+      category: string;
+      site: ReportedSite;
+      distanceKm: number | null;
+    };
+
+const filters: Filter[] = [
+  "All",
+  "Local News",
+  "Nearby Dumping Sites",
+  ...NEWS_CATEGORIES,
+];
+const nearbyRadiusKm = 25;
 
 export default function News(): JSX.Element {
   const router = useRouter();
@@ -36,33 +70,169 @@ export default function News(): JSX.Element {
 
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
   const [articles, setArticles] = useState<NewsArticle[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [sites, setSites] = useState<ReportedSite[]>([]);
+  const [isArticlesLoading, setIsArticlesLoading] = useState(true);
+  const [areSitesLoading, setAreSitesLoading] = useState(true);
+  const [articlesError, setArticlesError] = useState<string | null>(null);
+  const [sitesError, setSitesError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [userLocation, setUserLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [locationMessage, setLocationMessage] = useState(
+    "Getting your location...",
+  );
+  const [isGettingLocation, setIsGettingLocation] = useState(true);
 
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(
     null,
   );
 
   useEffect(() => {
-    setIsLoading(true);
-    setLoadError(null);
-    return subscribeNewsArticles(
+    const unsubscribeArticles = subscribeNewsArticles(
       (nextArticles) => {
         setArticles(nextArticles);
-        setIsLoading(false);
+        setIsArticlesLoading(false);
       },
       (error) => {
-        setLoadError(error.message);
-        setIsLoading(false);
+        setArticlesError(error.message);
+        setIsArticlesLoading(false);
       },
     );
+    const unsubscribeSites = subscribeRecentReportedSites(
+      (nextSites) => {
+        setSites(nextSites);
+        setAreSitesLoading(false);
+      },
+      (error) => {
+        setSitesError(error.message);
+        setAreSitesLoading(false);
+      },
+    );
+    return () => {
+      unsubscribeArticles();
+      unsubscribeSites();
+    };
   }, [retryCount]);
 
-  const filteredArticles =
+  const getUserLocation = useCallback(async () => {
+    try {
+      let permission = await ExpoLocation.getForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        permission = await ExpoLocation.requestForegroundPermissionsAsync();
+      }
+      if (permission.status !== "granted") {
+        setUserLocation(null);
+        setLocationMessage(
+          "Location permission was not granted. Showing recent reported sites without distance.",
+        );
+        return;
+      }
+
+      const position = await ExpoLocation.getCurrentPositionAsync({
+        accuracy: ExpoLocation.Accuracy.Balanced,
+      });
+      setUserLocation({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+      setLocationMessage(
+        `Showing reported sites within ${nearbyRadiusKm} km of your location.`,
+      );
+    } catch (error) {
+      setUserLocation(null);
+      setLocationMessage(
+        error instanceof Error
+          ? `Location unavailable: ${error.message}`
+          : "Location unavailable. Showing recent reported sites without distance.",
+      );
+    } finally {
+      setIsGettingLocation(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Location state updates follow asynchronous permission and GPS responses.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void getUserLocation();
+  }, [getUserLocation]);
+
+  const retryFeeds = () => {
+    setIsArticlesLoading(true);
+    setAreSitesLoading(true);
+    setArticlesError(null);
+    setSitesError(null);
+    setRetryCount((count) => count + 1);
+  };
+
+  const retryLocation = () => {
+    setIsGettingLocation(true);
+    setLocationMessage("Getting your location...");
+    void getUserLocation();
+  };
+
+  const siteItems: NewsFeedItem[] = sites
+    .map((site) => {
+      const distanceKm = userLocation
+        ? calculateDistanceKm(
+            userLocation.latitude,
+            userLocation.longitude,
+            site.latitude,
+            site.longitude,
+          )
+        : null;
+      return {
+        kind: "site" as const,
+        id: site.id,
+        title: `${site.wasteType} dumping site`,
+        story: site.description,
+        imageUrl: site.imageUrl,
+        publishedAt: site.createdAt,
+        category: `Reported site · ${formatReportStatus(site.status)}`,
+        site,
+        distanceKm,
+      };
+    })
+    .filter(
+      (item) =>
+        item.distanceKm === null || item.distanceKm <= nearbyRadiusKm,
+    )
+    .sort((first, second) => {
+      if (first.distanceKm !== null && second.distanceKm !== null) {
+        return first.distanceKm - second.distanceKm;
+      }
+      return second.publishedAt.getTime() - first.publishedAt.getTime();
+    });
+
+  const newsItems: NewsFeedItem[] = articles.map((article) => ({
+    kind: "news",
+    id: article.id,
+    title: article.title,
+    story: article.story,
+    imageUrl: article.imageUrl,
+    publishedAt: article.publishedAt,
+    category: article.category,
+    article,
+  }));
+
+  const allItems = [...newsItems, ...siteItems].sort(
+    (first, second) =>
+      second.publishedAt.getTime() - first.publishedAt.getTime(),
+  );
+  const filteredItems =
     activeFilter === "All"
-      ? articles
-      : articles.filter((article) => article.category === activeFilter);
+      ? allItems
+      : activeFilter === "Local News"
+        ? newsItems
+        : activeFilter === "Nearby Dumping Sites"
+          ? siteItems
+          : activeFilter === "Sites"
+            ? [
+                ...newsItems.filter((item) => item.category === "Sites"),
+                ...siteItems,
+              ]
+            : newsItems.filter((item) => item.category === activeFilter);
 
   const showAllNews = () => {
     setActiveFilter("All");
@@ -89,7 +259,7 @@ export default function News(): JSX.Element {
                 />
               </View>
 
-              <Text style={styles.brandName}>News</Text>
+              <Text style={styles.brandName}>News And Sites</Text>
             </View>
 
             {/* Article */}
@@ -183,7 +353,7 @@ export default function News(): JSX.Element {
               />
             </View>
 
-            <Text style={styles.brandName}>News</Text>
+            <Text style={styles.brandName}>News And Sites</Text>
           </View>
 
           {/* Filters */}
@@ -215,64 +385,125 @@ export default function News(): JSX.Element {
 
           {/* News heading */}
           <Text style={styles.latestTitle}>
-            {activeFilter === "All" ? "Latest News" : activeFilter}
+            {activeFilter === "All" ? "News And Sites" : activeFilter}
           </Text>
 
-          {/* News Cards */}
+          {(activeFilter === "All" ||
+            activeFilter === "Nearby Dumping Sites" ||
+            activeFilter === "Sites") && (
+            <View style={styles.locationNotice}>
+              <Text style={styles.locationNoticeText}>{locationMessage}</Text>
+              {!userLocation && !isGettingLocation && (
+                <Pressable
+                  onPress={retryLocation}
+                  accessibilityRole="button"
+                  accessibilityLabel="Enable location for nearby site reports"
+                  style={styles.locationAction}
+                >
+                  <Text style={styles.retryText}>Try location</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {/* News and reported-site cards */}
           <View style={styles.newsList}>
-            {filteredArticles.map((article) => (
-              <Pressable
-                key={article.id}
-                style={styles.newsCard}
-                onPress={() => setSelectedArticle(article)}
-              >
-                <View style={styles.newsCardText}>
-                  <Text style={styles.newsTitle} numberOfLines={3}>
-                    {article.title}
-                  </Text>
-
-                  <Text style={styles.newsTime}>
-                    {formatRelativeTime(article.publishedAt)}
-                  </Text>
-
-                  <View style={styles.categoryBadge}>
-                    <Text style={styles.categoryText}>{article.category}</Text>
+            {filteredItems.map((item) =>
+              item.kind === "news" ? (
+                <Pressable
+                  key={`news-${item.id}`}
+                  style={styles.newsCard}
+                  onPress={() => setSelectedArticle(item.article)}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.newsCardText}>
+                    <Text style={styles.newsTitle} numberOfLines={3}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.newsTime}>
+                      {formatRelativeTime(item.publishedAt)}
+                    </Text>
+                    <View style={styles.categoryBadge}>
+                      <Text style={styles.categoryText}>
+                        News article · {item.category}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.newsImage}>
+                    <Image
+                      source={
+                        item.imageUrl
+                          ? { uri: item.imageUrl }
+                          : require("../../assets/images/13.jpeg")
+                      }
+                      style={styles.articleImage}
+                    />
+                  </View>
+                </Pressable>
+              ) : (
+                <View key={`site-${item.id}`} style={styles.newsCard}>
+                  <View style={styles.newsCardText}>
+                    <Text style={styles.newsTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.newsTime}>
+                      {formatRelativeTime(item.publishedAt)}
+                    </Text>
+                    <Text style={styles.siteDistance}>
+                      {item.distanceKm === null
+                        ? "Distance unavailable"
+                        : `${item.distanceKm.toFixed(1)} km away`}
+                    </Text>
+                    <View style={styles.siteCategoryBadge}>
+                      <Text style={styles.categoryText}>{item.category}</Text>
+                    </View>
+                    <Text style={styles.siteDescription} numberOfLines={3}>
+                      {item.story}
+                    </Text>
+                  </View>
+                  <View style={styles.newsImage}>
+                    <Image
+                      source={
+                        item.imageUrl
+                          ? { uri: item.imageUrl }
+                          : require("../../assets/images/dumpingsite.jpeg")
+                      }
+                      style={styles.articleImage}
+                    />
                   </View>
                 </View>
-
-                <View style={styles.newsImage}>
-                  <Image
-                    source={
-                      article.imageUrl
-                        ? { uri: article.imageUrl }
-                        : require("../../assets/images/13.jpeg")
-                    }
-                    style={styles.articleImage}
-                  />
-                </View>
-              </Pressable>
-            ))}
+              ),
+            )}
           </View>
 
-          {isLoading ? (
+          {isArticlesLoading || areSitesLoading ? (
             <View style={styles.emptyContainer}>
               <ActivityIndicator color="#36B86B" />
             </View>
-          ) : loadError ? (
+          ) : articlesError || sitesError ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>{loadError}</Text>
+              <Text style={styles.emptyText}>
+                {[articlesError, sitesError].filter(Boolean).join(" ")}
+              </Text>
               <Pressable
-                onPress={() => setRetryCount((count) => count + 1)}
+                onPress={retryFeeds}
                 accessibilityRole="button"
               >
                 <Text style={styles.retryText}>Try again</Text>
               </Pressable>
             </View>
           ) : (
-            filteredArticles.length === 0 && (
+            filteredItems.length === 0 && (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
-                  No news available for this category.
+                  {activeFilter === "Nearby Dumping Sites" ||
+                  activeFilter === "Sites"
+                    ? userLocation
+                      ? "No reported dumping sites found nearby."
+                      : "No recent reported dumping sites are available."
+                    : activeFilter === "All"
+                      ? "No local news articles or reported sites are available yet."
+                      : "No local news available for this category."}
                 </Text>
               </View>
             )
@@ -288,7 +519,10 @@ export default function News(): JSX.Element {
             <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
           </Pressable>
 
-          <Pressable onPress={showAllNews} accessibilityLabel="View News">
+          <Pressable
+            onPress={showAllNews}
+            accessibilityLabel="View News And Sites"
+          >
             <FontAwesomeIcon icon={faNewspaper} size={20} color="#36B86B" />
           </Pressable>
 
@@ -312,6 +546,28 @@ export default function News(): JSX.Element {
       </View>
     </SafeAreaView>
   );
+}
+
+function calculateDistanceKm(
+  latitude: number,
+  longitude: number,
+  targetLatitude: number,
+  targetLongitude: number,
+): number {
+  const radians = (degrees: number) => (degrees * Math.PI) / 180;
+  const latitudeDifference = radians(targetLatitude - latitude);
+  const longitudeDifference = radians(targetLongitude - longitude);
+  const calculation =
+    Math.sin(latitudeDifference / 2) ** 2 +
+    Math.cos(radians(latitude)) *
+      Math.cos(radians(targetLatitude)) *
+      Math.sin(longitudeDifference / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(calculation), Math.sqrt(1 - calculation));
+}
+
+function formatReportStatus(status: string): string {
+  if (status === "pending_verification") return "pending verification";
+  return status.replace(/_/g, " ");
 }
 
 const styles = StyleSheet.create({
@@ -376,7 +632,8 @@ const styles = StyleSheet.create({
   },
 
   brandName: {
-    fontSize: 22,
+    flexShrink: 1,
+    fontSize: 19,
     fontWeight: "700",
     color: "#17201A",
   },
@@ -414,6 +671,20 @@ const styles = StyleSheet.create({
     color: "#17201A",
     marginBottom: 14,
   },
+  locationNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 12,
+  },
+  locationNoticeText: {
+    flex: 1,
+    color: "#68706A",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  locationAction: { paddingVertical: 4, paddingLeft: 8 },
 
   /* News cards */
   newsList: {
@@ -455,6 +726,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 10,
+  },
+  siteCategoryBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#3E6475",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  siteDistance: {
+    color: "#4D554F",
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  siteDescription: {
+    color: "#4D554F",
+    fontSize: 12,
+    lineHeight: 17,
   },
 
   categoryText: {
