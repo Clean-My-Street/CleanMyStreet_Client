@@ -10,7 +10,6 @@ import { JSX, useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,7 +17,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import MapView, { Marker, type MapPressEvent, type Region } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
 import { getApiErrorMessage } from "../services/api";
@@ -26,19 +24,17 @@ import {
   submitDumpingReport,
   type WasteType,
 } from "../services/reportService";
-
-const DEFAULT_MAP_REGION: Region = {
-  latitude: -29.8587,
-  longitude: 31.0218,
-  latitudeDelta: 0.04,
-  longitudeDelta: 0.04,
-};
+import LocationMap from "./LocationMap";
+import type {
+  LocationCoordinate,
+  LocationMapHandle,
+} from "./LocationMap.types";
 
 export default function Location(): JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<{ photoUri?: string }>();
   const photoUri = typeof params.photoUri === "string" ? params.photoUri : "";
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<LocationMapHandle | null>(null);
   const hasManuallySelectedLocation = useRef(false);
   const [wasteType, setWasteType] = useState<WasteType>("Illegal Dumping");
   const [description, setDescription] = useState("");
@@ -50,18 +46,6 @@ export default function Location(): JSX.Element {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
-
-  const moveMapTo = (latitude: number, longitude: number) => {
-    mapRef.current?.animateToRegion(
-      {
-        latitude,
-        longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      },
-      400,
-    );
-  };
 
   const getCurrentLocation = useCallback(async () => {
     setIsGettingLocation(true);
@@ -84,7 +68,10 @@ export default function Location(): JSX.Element {
           longitude: position.coords.longitude,
         };
         setCoordinates(nextCoordinates);
-        moveMapTo(nextCoordinates.latitude, nextCoordinates.longitude);
+        mapRef.current?.moveToCoordinate(
+          nextCoordinates.latitude,
+          nextCoordinates.longitude,
+        );
       }
     } catch (error) {
       setCoordinates(null);
@@ -102,19 +89,9 @@ export default function Location(): JSX.Element {
     void getCurrentLocation();
   }, [getCurrentLocation]);
 
-  const selectMapLocation = ({ nativeEvent }: MapPressEvent) => {
+  const selectMapLocation = (coordinate: LocationCoordinate) => {
     hasManuallySelectedLocation.current = true;
-    setCoordinates(nativeEvent.coordinate);
-    setLocationError(null);
-  };
-
-  const moveSelectedMarker = ({
-    nativeEvent,
-  }: {
-    nativeEvent: { coordinate: { latitude: number; longitude: number } };
-  }) => {
-    hasManuallySelectedLocation.current = true;
-    setCoordinates(nativeEvent.coordinate);
+    setCoordinates(coordinate);
     setLocationError(null);
   };
 
@@ -192,37 +169,18 @@ export default function Location(): JSX.Element {
 
           {/* MAP */}
           <View style={styles.mapBox}>
-            {Platform.OS === "web" ? (
-              <View style={styles.mapFallback}>
-                <Text style={styles.mapText}>Map is available in the mobile app</Text>
-                <Text style={styles.mapSubText}>
-                  {coordinates
-                    ? `${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}`
-                    : locationError ?? "Use your device location to set the report location."}
-                </Text>
-              </View>
-            ) : (
-              <MapView
-                ref={mapRef}
-                style={styles.map}
-                initialRegion={DEFAULT_MAP_REGION}
-                onPress={selectMapLocation}
-                showsUserLocation={hasLocationPermission}
-                showsMyLocationButton={false}
-                toolbarEnabled
-                accessibilityLabel="Select dumping site location on map"
-              >
-                {coordinates && (
-                  <Marker
-                    coordinate={coordinates}
-                    title="Dumping site location"
-                    description="Drag the marker or tap the map to adjust."
-                    draggable
-                    onDragEnd={moveSelectedMarker}
-                  />
-                )}
-              </MapView>
-            )}
+            <LocationMap
+              ref={mapRef}
+              coordinates={coordinates}
+              fallbackText={
+                coordinates
+                  ? `${coordinates.latitude.toFixed(6)}, ${coordinates.longitude.toFixed(6)}`
+                  : locationError ??
+                    "Use your device location to set the report location."
+              }
+              hasLocationPermission={hasLocationPermission}
+              onSelectLocation={selectMapLocation}
+            />
             <View pointerEvents="none" style={styles.mapInstruction}>
               <Text style={styles.mapInstructionText}>
                 {coordinates
@@ -462,17 +420,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: "hidden",
     marginBottom: 24,
-  },
-
-  map: {
-    ...StyleSheet.absoluteFill,
-  },
-
-  mapFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 20,
   },
 
   mapInstruction: {

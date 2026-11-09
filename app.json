@@ -21,7 +21,7 @@
       "package": "com.anonymous.CleanMyStreet_Client"
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/cleanmystreet.png"
     },
     "plugins": [
