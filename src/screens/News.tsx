@@ -9,8 +9,10 @@ import { useRouter } from "expo-router";
 import * as ExpoLocation from "expo-location";
 import { JSX, useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   ActivityIndicator,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,6 +22,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
 import {
+  fetchRelevantNews,
+  type GdeltLocationContext,
   NEWS_CATEGORIES,
   subscribeNewsArticles,
   type NewsArticle,
@@ -70,10 +74,13 @@ export default function News(): JSX.Element {
 
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
   const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [gdeltArticles, setGdeltArticles] = useState<NewsArticle[]>([]);
   const [sites, setSites] = useState<ReportedSite[]>([]);
   const [isArticlesLoading, setIsArticlesLoading] = useState(true);
+  const [isGdeltLoading, setIsGdeltLoading] = useState(true);
   const [areSitesLoading, setAreSitesLoading] = useState(true);
   const [articlesError, setArticlesError] = useState<string | null>(null);
+  const [gdeltError, setGdeltError] = useState<string | null>(null);
   const [sitesError, setSitesError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [userLocation, setUserLocation] = useState<{
@@ -84,6 +91,9 @@ export default function News(): JSX.Element {
     "Getting your location...",
   );
   const [isGettingLocation, setIsGettingLocation] = useState(true);
+  const [isLocationResolved, setIsLocationResolved] = useState(false);
+  const [gdeltLocation, setGdeltLocation] =
+    useState<GdeltLocationContext | null>(null);
 
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(
     null,
@@ -124,9 +134,11 @@ export default function News(): JSX.Element {
       }
       if (permission.status !== "granted") {
         setUserLocation(null);
+        setGdeltLocation(null);
         setLocationMessage(
-          "Location permission was not granted. Showing recent reported sites without distance.",
+          "Location permission was not granted. Showing topical news and recent reported sites without distance.",
         );
+        setIsLocationResolved(true);
         return;
       }
 
@@ -137,16 +149,42 @@ export default function News(): JSX.Element {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       });
+      let context: GdeltLocationContext | null = null;
+      try {
+        const [place] = await ExpoLocation.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        context = {
+          city: place?.city ?? place?.district ?? undefined,
+          region: place?.region ?? place?.subregion ?? undefined,
+          country: place?.country ?? undefined,
+        };
+        if (!context.city && !context.region && !context.country) {
+          context = null;
+        }
+      } catch (error) {
+        console.warn(
+          "Could not determine the user's area for local news search.",
+          error,
+        );
+      }
+      setGdeltLocation(context);
       setLocationMessage(
-        `Showing reported sites within ${nearbyRadiusKm} km of your location.`,
+        context?.city || context?.region
+          ? `Showing environmental news for ${context.city ?? context.region} and reported sites within ${nearbyRadiusKm} km.`
+          : `Location found. Searching general environmental news and showing reported sites within ${nearbyRadiusKm} km.`,
       );
+      setIsLocationResolved(true);
     } catch (error) {
       setUserLocation(null);
+      setGdeltLocation(null);
       setLocationMessage(
         error instanceof Error
-          ? `Location unavailable: ${error.message}`
-          : "Location unavailable. Showing recent reported sites without distance.",
+          ? `Location unavailable: ${error.message} Showing topical news and recent reported sites without distance.`
+          : "Location unavailable. Showing topical news and recent reported sites without distance.",
       );
+      setIsLocationResolved(true);
     } finally {
       setIsGettingLocation(false);
     }
@@ -158,18 +196,60 @@ export default function News(): JSX.Element {
     void getUserLocation();
   }, [getUserLocation]);
 
+  useEffect(() => {
+    if (!isLocationResolved) return;
+    const controller = new AbortController();
+    void fetchRelevantNews(gdeltLocation, controller.signal)
+      .then((nextArticles) => {
+        setGdeltArticles(nextArticles);
+        setGdeltError(null);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setGdeltError(
+          error instanceof Error
+            ? error.message
+            : "Could not load environmental news from GDELT.",
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsGdeltLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [gdeltLocation, isLocationResolved, retryCount]);
+
   const retryFeeds = () => {
     setIsArticlesLoading(true);
+    setIsGdeltLoading(true);
     setAreSitesLoading(true);
     setArticlesError(null);
+    setGdeltError(null);
     setSitesError(null);
     setRetryCount((count) => count + 1);
   };
 
   const retryLocation = () => {
     setIsGettingLocation(true);
+    setIsLocationResolved(false);
+    setIsGdeltLoading(true);
+    setGdeltError(null);
     setLocationMessage("Getting your location...");
     void getUserLocation();
+  };
+
+  const openOriginalArticle = async (url: string | undefined) => {
+    if (!url) return;
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      Alert.alert(
+        "Could not open article",
+        error instanceof Error
+          ? error.message
+          : "Please try opening the source again.",
+      );
+    }
   };
 
   const siteItems: NewsFeedItem[] = sites
@@ -205,16 +285,18 @@ export default function News(): JSX.Element {
       return second.publishedAt.getTime() - first.publishedAt.getTime();
     });
 
-  const newsItems: NewsFeedItem[] = articles.map((article) => ({
-    kind: "news",
-    id: article.id,
-    title: article.title,
-    story: article.story,
-    imageUrl: article.imageUrl,
-    publishedAt: article.publishedAt,
-    category: article.category,
-    article,
-  }));
+  const newsItems: NewsFeedItem[] = [...articles, ...gdeltArticles].map(
+    (article) => ({
+      kind: "news",
+      id: article.id,
+      title: article.title,
+      story: article.story,
+      imageUrl: article.imageUrl,
+      publishedAt: article.publishedAt,
+      category: article.category,
+      article,
+    }),
+  );
 
   const allItems = [...newsItems, ...siteItems].sort(
     (first, second) =>
@@ -287,11 +369,39 @@ export default function News(): JSX.Element {
 
               <Text style={styles.storyText}>{selectedArticle.story}</Text>
 
-              <Text style={styles.storyText}>
-                CleanMyStreet encourages residents to stay involved in their
-                communities and report areas that need attention. Working
-                together can help keep public spaces cleaner and safer.
-              </Text>
+              {selectedArticle.sourceUrl ? (
+                <View style={styles.sourceDetails}>
+                  <Text style={styles.sourceText}>
+                    Indexed by GDELT
+                    {selectedArticle.domain
+                      ? ` · ${selectedArticle.domain}`
+                      : ""}
+                    {selectedArticle.sourceCountry
+                      ? ` · ${selectedArticle.sourceCountry}`
+                      : ""}
+                    {selectedArticle.sourceLanguage
+                      ? ` · ${selectedArticle.sourceLanguage}`
+                      : ""}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      void openOriginalArticle(selectedArticle.sourceUrl);
+                    }}
+                    accessibilityRole="link"
+                    style={styles.sourceButton}
+                  >
+                    <Text style={styles.sourceButtonText}>
+                      Read original article
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text style={styles.storyText}>
+                  CleanMyStreet encourages residents to stay involved in their
+                  communities and report areas that need attention. Working
+                  together can help keep public spaces cleaner and safer.
+                </Text>
+              )}
             </View>
           </ScrollView>
 
@@ -389,18 +499,34 @@ export default function News(): JSX.Element {
           </Text>
 
           {(activeFilter === "All" ||
+            activeFilter === "Local News" ||
             activeFilter === "Nearby Dumping Sites" ||
-            activeFilter === "Sites") && (
+            activeFilter === "Recent News" ||
+            activeFilter === "Sites" ||
+            activeFilter === "Recycling") && (
             <View style={styles.locationNotice}>
-              <Text style={styles.locationNoticeText}>{locationMessage}</Text>
+              <Text style={styles.locationNoticeText}>
+                {locationMessage}
+                {gdeltError ? ` Live GDELT news unavailable: ${gdeltError}` : ""}
+              </Text>
               {!userLocation && !isGettingLocation && (
                 <Pressable
                   onPress={retryLocation}
                   accessibilityRole="button"
-                  accessibilityLabel="Enable location for nearby site reports"
+                  accessibilityLabel="Enable location for local news and nearby sites"
                   style={styles.locationAction}
                 >
                   <Text style={styles.retryText}>Try location</Text>
+                </Pressable>
+              )}
+              {gdeltError && (
+                <Pressable
+                  onPress={retryFeeds}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry loading live news"
+                  style={styles.locationAction}
+                >
+                  <Text style={styles.retryText}>Retry news</Text>
                 </Pressable>
               )}
             </View>
@@ -425,9 +551,18 @@ export default function News(): JSX.Element {
                     </Text>
                     <View style={styles.categoryBadge}>
                       <Text style={styles.categoryText}>
-                        News article · {item.category}
+                        {item.article.sourceUrl ? "GDELT" : "News article"} ·{" "}
+                        {item.category}
                       </Text>
                     </View>
+                    {item.article.domain && (
+                      <Text style={styles.articleSource} numberOfLines={1}>
+                        {item.article.domain}
+                        {item.article.sourceCountry
+                          ? ` · ${item.article.sourceCountry}`
+                          : ""}
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.newsImage}>
                     <Image
@@ -476,14 +611,16 @@ export default function News(): JSX.Element {
             )}
           </View>
 
-          {isArticlesLoading || areSitesLoading ? (
+          {isArticlesLoading || isGdeltLoading || areSitesLoading ? (
             <View style={styles.emptyContainer}>
               <ActivityIndicator color="#36B86B" />
             </View>
-          ) : articlesError || sitesError ? (
+          ) : articlesError || gdeltError || sitesError ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                {[articlesError, sitesError].filter(Boolean).join(" ")}
+                {[articlesError, gdeltError, sitesError]
+                  .filter(Boolean)
+                  .join(" ")}
               </Text>
               <Pressable
                 onPress={retryFeeds}
@@ -727,6 +864,11 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 10,
   },
+  articleSource: {
+    color: "#68706A",
+    fontSize: 10,
+    marginTop: 7,
+  },
   siteCategoryBadge: {
     alignSelf: "flex-start",
     backgroundColor: "#3E6475",
@@ -832,6 +974,26 @@ const styles = StyleSheet.create({
     color: "#27332B",
     marginBottom: 18,
   },
+  sourceDetails: {
+    borderTopWidth: 1,
+    borderTopColor: "#B8D7C2",
+    paddingTop: 14,
+    marginBottom: 16,
+  },
+  sourceText: {
+    color: "#68706A",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  sourceButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#36B86B",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 12,
+  },
+  sourceButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
 
   /* Bottom navigation */
   bottomNav: {

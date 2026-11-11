@@ -51,9 +51,19 @@ export function subscribeRecentReportedSites(
   return onSnapshot(
     reportsQuery,
     (snapshot) => {
+      const currentUserId = auth.currentUser?.uid;
       const sites = snapshot.docs.flatMap((report) => {
         const data = report.data();
         const location = data.location;
+        const status =
+          typeof data.status === "string" ? data.status.trim() : "reported";
+        if (
+          (currentUserId && data.reporterId === currentUserId) ||
+          status.toLowerCase().startsWith("pending")
+        ) {
+          return [];
+        }
+
         if (
           typeof data.description !== "string" ||
           !["Household", "Construction", "Illegal Dumping"].includes(
@@ -79,8 +89,7 @@ export function subscribeRecentReportedSites(
               typeof data.imageUrl === "string" && data.imageUrl.trim()
                 ? data.imageUrl
                 : null,
-            status:
-              typeof data.status === "string" ? data.status : "reported",
+            status,
             createdAt: data.createdAt.toDate(),
           },
         ];
