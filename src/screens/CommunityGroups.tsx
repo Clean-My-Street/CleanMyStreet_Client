@@ -1,4 +1,4 @@
-import { faArrowLeft, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft, faHouse, faNewspaper, faUsers } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import * as ExpoLocation from "expo-location";
 import { useRouter } from "expo-router";
@@ -12,6 +12,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ProfileNavButton } from "../components/ProfileNavButton";
+import { feedColors as colors } from "../constants/feedColors";
 import {
   createCommunityGroups,
   type CommunityGroup,
@@ -211,6 +213,43 @@ export default function CommunityGroups({
             );
           })}
         </ScrollView>
+        <View style={styles.bottomNav}>
+                  <Pressable
+                    onPress={() => router.push("/home")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Go to Home"
+                  >
+                    <FontAwesomeIcon icon={faHouse} size={20} color={colors.green} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => router.push("/news")}
+                    accessibilityRole="button"
+                    accessibilityLabel="View News"
+                  >
+                    <FontAwesomeIcon
+                      icon={faNewspaper}
+                      size={20}
+                      color={colors.green}
+                    />
+                  </Pressable>
+                  <Pressable
+                    style={styles.addButton}
+                    onPress={() => router.push("/reportdumping")}
+                    accessibilityRole="button"
+                    accessibilityLabel="Report dumping"
+                  >
+                    <Text style={styles.addButtonText}>+</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled
+                    accessibilityRole="button"
+                    accessibilityLabel="Community"
+                    accessibilityState={{ selected: true }}
+                  >
+                    <FontAwesomeIcon icon={faUsers} size={20} color={colors.green} />
+                  </Pressable>
+                  <ProfileNavButton iconColor={colors.green} />
+          </View>
       </View>
     </SafeAreaView>
   );
@@ -271,6 +310,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5EAE6",
   },
+  bottomNav: {
+    minHeight: 68,
+    borderTopWidth: 1,
+    borderTopColor: "#E8E8E8",
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingHorizontal: 10,
+  },
   groupIcon: {
     width: 40,
     height: 40,
@@ -287,6 +336,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginTop: 8,
+  },
+   addButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: colors.muted,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addButtonText: {
+    color: colors.ink,
+    fontSize: 28,
+    fontWeight: "300",
+    lineHeight: 30,
   },
   memberNote: { color: "#68706A", fontSize: 10, marginTop: 7 },
   groupButton: {
