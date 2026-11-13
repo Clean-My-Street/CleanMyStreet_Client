@@ -2,23 +2,34 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    // Private uploads for new reports. Only the uploader can see them; the API
+    // checks the photo, publishes a copy under reportImages/ and deletes this one.
     match /reports/{userId}/{fileName} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null
         && request.auth.uid == userId
+        && fileName.matches('[A-Za-z0-9_-]{1,128}[.]jpg')
         && request.resource.size <= 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+        && request.resource.contentType == 'image/jpeg';
       allow update: if false;
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Published report photos. Written only by the API, so a reporter cannot
+    // delete the photo out from under a report, and the path has no user ID.
+    match /reportImages/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     // Each user has one profile picture, overwritten on every change.
+    // SVG is excluded because it can carry scripts.
     match /users/{userId}/profilePicture {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null
         && request.auth.uid == userId
         && request.resource.size <= 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic|heif)');
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
   }
