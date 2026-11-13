@@ -5,14 +5,10 @@ import {
   onSnapshot,
   orderBy,
   query,
+  type QueryDocumentSnapshot,
   type Unsubscribe,
 } from "firebase/firestore";
-import {
-  deleteObject,
-  getDownloadURL,
-  ref,
-  uploadBytes,
-} from "firebase/storage";
+import { deleteObject, ref, uploadBytes } from "firebase/storage";
 import { auth, db, storage } from "./firebase";
 import { createReport, type CreateReportInput } from "./api";
 import { readLocalImage } from "../utils/readLocalImage";
@@ -48,56 +44,81 @@ export function subscribeRecentReportedSites(
     limit(100),
   );
 
-  return onSnapshot(
+  // Reports don't say who made them, so the user's own report IDs come from
+  // their private list at users/{uid}/reports.
+  let ownReportIds = new Set<string>();
+  let reportDocs: QueryDocumentSnapshot[] = [];
+  const currentUserId = auth.currentUser?.uid;
+
+  const publish = () => {
+    const sites = reportDocs.flatMap((report) => {
+      const data = report.data();
+      const location = data.location;
+      const status =
+        typeof data.status === "string" ? data.status.trim() : "reported";
+      if (
+        ownReportIds.has(report.id) ||
+        status.toLowerCase().startsWith("pending")
+      ) {
+        return [];
+      }
+
+      if (
+        typeof data.description !== "string" ||
+        !["Household", "Construction", "Illegal Dumping"].includes(
+          data.wasteType,
+        ) ||
+        typeof location !== "object" ||
+        location === null ||
+        typeof location.latitude !== "number" ||
+        typeof location.longitude !== "number" ||
+        typeof data.createdAt?.toDate !== "function"
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          id: report.id,
+          description: data.description,
+          wasteType: data.wasteType as WasteType,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          imageUrl:
+            typeof data.imageUrl === "string" && data.imageUrl.trim()
+              ? data.imageUrl
+              : null,
+          status,
+          createdAt: data.createdAt.toDate(),
+        },
+      ];
+    });
+    onSites(sites);
+  };
+
+  const unsubscribeReports = onSnapshot(
     reportsQuery,
     (snapshot) => {
-      const currentUserId = auth.currentUser?.uid;
-      const sites = snapshot.docs.flatMap((report) => {
-        const data = report.data();
-        const location = data.location;
-        const status =
-          typeof data.status === "string" ? data.status.trim() : "reported";
-        if (
-          (currentUserId && data.reporterId === currentUserId) ||
-          status.toLowerCase().startsWith("pending")
-        ) {
-          return [];
-        }
-
-        if (
-          typeof data.description !== "string" ||
-          !["Household", "Construction", "Illegal Dumping"].includes(
-            data.wasteType,
-          ) ||
-          typeof location !== "object" ||
-          location === null ||
-          typeof location.latitude !== "number" ||
-          typeof location.longitude !== "number" ||
-          typeof data.createdAt?.toDate !== "function"
-        ) {
-          return [];
-        }
-
-        return [
-          {
-            id: report.id,
-            description: data.description,
-            wasteType: data.wasteType as WasteType,
-            latitude: location.latitude,
-            longitude: location.longitude,
-            imageUrl:
-              typeof data.imageUrl === "string" && data.imageUrl.trim()
-                ? data.imageUrl
-                : null,
-            status,
-            createdAt: data.createdAt.toDate(),
-          },
-        ];
-      });
-      onSites(sites);
+      reportDocs = snapshot.docs;
+      publish();
     },
     onError,
   );
+  const unsubscribeOwnReports = currentUserId
+    ? onSnapshot(
+        collection(db, "users", currentUserId, "reports"),
+        (snapshot) => {
+          ownReportIds = new Set(snapshot.docs.map((report) => report.id));
+          publish();
+        },
+        onError,
+      )
+    : () => {};
+
+  return () => {
+    unsubscribeReports();
+    unsubscribeOwnReports();
+  };
 }
 
 export async function submitDumpingReport(
@@ -136,15 +157,13 @@ export async function submitDumpingReport(
     });
     imageUploaded = true;
 
-    const imageUrl = await getDownloadURL(imageReference);
+    // The server checks this upload, publishes a copy and removes the original.
     const reportInput: CreateReportInput = {
       reportId,
       description: input.description.trim(),
       wasteType: input.wasteType,
       latitude: input.latitude,
       longitude: input.longitude,
-      imageUrl,
-      imagePath: imageReference.fullPath,
     };
 
     return await createReport(reportInput);

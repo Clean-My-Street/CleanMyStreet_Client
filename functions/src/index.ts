@@ -5,18 +5,32 @@ import express, {
   type RequestHandler,
   type Response,
 } from "express";
+import { getAppCheck } from "firebase-admin/app-check";
 import { getAuth, type DecodedIdToken } from "firebase-admin/auth";
 import { initializeApp } from "firebase-admin/app";
 import {
+  FieldValue,
   getFirestore,
   Timestamp,
 } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+import { randomUUID } from "node:crypto";
 import { https } from "firebase-functions/v1";
 
 initializeApp();
 
 const db = getFirestore();
+const bucket = getStorage().bucket();
 const app = express();
+
+// Set ENFORCE_APP_CHECK=true (for example in functions/.env) once the app sends
+// App Check tokens. Until then, tokens are verified when present but not required.
+const ENFORCE_APP_CHECK = process.env.ENFORCE_APP_CHECK === "true";
+
+const HOUR = 60 * 60 * 1000;
+const MAX_REPORT_IMAGE_BYTES = 10 * 1024 * 1024;
+// Pledges are promises to pay, not payments; this cap stops absurd totals.
+const MAX_PLEDGE_AMOUNT = 50_000;
 
 app.use(cors({ origin: true, methods: ["POST", "OPTIONS"] }));
 app.use(express.json({ limit: "1mb" }));
@@ -72,6 +86,64 @@ const authenticate: RequestHandler = (request, response, next) => {
       next(error);
     });
 };
+
+const verifyAppCheck: RequestHandler = (request, response, next) => {
+  const token = request.get("x-firebase-appcheck");
+  if (!token) {
+    if (ENFORCE_APP_CHECK) {
+      response.status(401).json({ error: "This app version is not supported." });
+      return;
+    }
+    next();
+    return;
+  }
+
+  getAppCheck()
+    .verifyToken(token)
+    .then(() => next())
+    .catch(() => {
+      response.status(401).json({ error: "This app version is not supported." });
+    });
+};
+
+// Fixed-window limit per user and action, stored in Firestore so it holds
+// across function instances. Clients cannot read or write rateLimits.
+function rateLimit(action: string, limit: number, windowMs: number): RequestHandler {
+  return (request, response, next) => {
+    const user = getAuthenticatedUser(request);
+    const reference = db.collection("rateLimits").doc(`${action}_${user.uid}`);
+
+    db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(reference);
+      const now = Date.now();
+      const windowStart = snapshot.get("windowStart");
+      const count = snapshot.get("count");
+
+      if (
+        typeof windowStart === "number" &&
+        typeof count === "number" &&
+        now - windowStart < windowMs
+      ) {
+        if (count >= limit) {
+          throw new HttpError(
+            429,
+            "You are doing that too often. Please try again later.",
+          );
+        }
+        transaction.update(reference, { count: count + 1 });
+        return;
+      }
+
+      transaction.set(reference, {
+        windowStart: now,
+        count: 1,
+        expiresAt: Timestamp.fromMillis(now + windowMs),
+      });
+    })
+      .then(() => next())
+      .catch(next);
+  };
+}
 
 function asyncHandler(
   handler: (request: Request, response: Response) => Promise<void>,
@@ -138,13 +210,27 @@ function notificationData(
   return { category, title, initials: "CM", read: false, createdAt };
 }
 
+// The same link format Firebase Storage's getDownloadURL returns. The token
+// is created by the server, so the reporter never knows the public link's token.
+function downloadUrl(path: string, token: string): string {
+  const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST;
+  const origin = emulatorHost
+    ? `http://${emulatorHost}`
+    : "https://firebasestorage.googleapis.com";
+  return `${origin}/v0/b/${bucket.name}/o/${encodeURIComponent(
+    path,
+  )}?alt=media&token=${token}`;
+}
+
 function responseCreatedAt(timestamp: Timestamp): string {
   return timestamp.toDate().toISOString();
 }
 
 app.post(
   "/reports",
+  verifyAppCheck,
   authenticate,
+  rateLimit("reports", 10, HOUR),
   asyncHandler(async (request, response) => {
     const user = getAuthenticatedUser(request);
     const body: unknown = request.body;
@@ -152,8 +238,10 @@ app.post(
       throw new HttpError(400, "A JSON request body is required.");
     }
 
-    const reportId = requireString(body.reportId, "reportId", 128);
-    if (!/^[A-Za-z0-9_-]+$/.test(reportId)) {
+    // The client's upload ID only names the private upload. The public report
+    // gets a server-generated ID so it cannot collide with another report.
+    const uploadId = requireString(body.reportId, "reportId", 128);
+    if (!/^[A-Za-z0-9_-]+$/.test(uploadId)) {
       throw new HttpError(400, "reportId contains invalid characters.");
     }
 
@@ -164,40 +252,84 @@ app.post(
       throw new HttpError(400, "A GPS latitude and longitude are required.");
     }
 
-    const imageUrl = requireString(body.imageUrl, "imageUrl", 2048);
-    const imagePath = requireString(body.imagePath, "imagePath", 256);
     const wasteType = requireString(body.wasteType, "wasteType", 80);
     if (!["Household", "Construction", "Illegal Dumping"].includes(wasteType)) {
       throw new HttpError(400, "wasteType is invalid.");
     }
-    if (imagePath !== `reports/${user.uid}/${reportId}.jpg`) {
-      throw new HttpError(400, "imagePath is invalid.");
+
+    // Check the photo the user actually uploaded instead of trusting a URL
+    // from the request.
+    const upload = bucket.file(`reports/${user.uid}/${uploadId}.jpg`);
+    const [uploadExists] = await upload.exists();
+    if (!uploadExists) {
+      throw new HttpError(400, "The report photo was not uploaded.");
     }
+    const [uploadMetadata] = await upload.getMetadata();
+    const uploadSize = Number(uploadMetadata.size);
+    if (
+      uploadMetadata.contentType !== "image/jpeg" ||
+      !Number.isFinite(uploadSize) ||
+      uploadSize <= 0 ||
+      uploadSize > MAX_REPORT_IMAGE_BYTES
+    ) {
+      throw new HttpError(400, "The report photo must be a JPEG of at most 10 MB.");
+    }
+
+    const reference = db.collection("reports").doc();
+    // The public copy's path does not contain the reporter's user ID.
+    const imagePath = `reportImages/${reference.id}.jpg`;
+    const publicImage = bucket.file(imagePath);
+    const downloadToken = randomUUID();
+    await upload.copy(publicImage, {
+      contentType: "image/jpeg",
+      metadata: { firebaseStorageDownloadTokens: downloadToken },
+    });
+
     const createdAt = Timestamp.now();
     const report = {
       description,
       location: { latitude, longitude },
-      imageUrl,
+      imageUrl: downloadUrl(imagePath, downloadToken),
       imagePath,
       wasteType,
-      reporterId: user.uid,
       status: "pending_verification",
       createdAt,
       updatedAt: createdAt,
     };
 
-    const reference = db.collection("reports").doc(reportId);
-    const batch = db.batch();
-    batch.create(reference, report);
-    batch.create(
-      notificationReference(user.uid),
-      notificationData(
-        "Cleanups",
-        "Your dumping report was received and is awaiting verification",
+    try {
+      const batch = db.batch();
+      batch.create(reference, report);
+      // Who reported what is private: only the server and the reporter can see it.
+      batch.create(db.collection("reportOwners").doc(reference.id), {
+        reportId: reference.id,
+        reporterId: user.uid,
         createdAt,
-      ),
-    );
-    await batch.commit();
+      });
+      batch.create(
+        db.collection("users").doc(user.uid).collection("reports").doc(reference.id),
+        { reportId: reference.id, createdAt },
+      );
+      batch.create(
+        notificationReference(user.uid),
+        notificationData(
+          "Cleanups",
+          "Your dumping report was received and is awaiting verification",
+          createdAt,
+        ),
+      );
+      await batch.commit();
+    } catch (error) {
+      await publicImage.delete({ ignoreNotFound: true }).catch((cleanupError) => {
+        console.error("Could not remove an unused report image", cleanupError);
+      });
+      throw error;
+    }
+
+    await upload.delete({ ignoreNotFound: true }).catch((cleanupError) => {
+      console.error("Could not remove the private report upload", cleanupError);
+    });
+
     response.status(201).json({
       id: reference.id,
       ...report,
@@ -208,7 +340,9 @@ app.post(
 
 app.post(
   "/community/posts",
+  verifyAppCheck,
   authenticate,
+  rateLimit("communityPosts", 20, HOUR),
   asyncHandler(async (request, response) => {
     const user = getAuthenticatedUser(request);
     const body: unknown = request.body;
@@ -248,7 +382,9 @@ app.post(
 
 app.post(
   "/campaigns/:campaignId/contributions",
+  verifyAppCheck,
   authenticate,
+  rateLimit("contributions", 20, HOUR),
   asyncHandler(async (request, response) => {
     const user = getAuthenticatedUser(request);
     const campaignId =
@@ -263,12 +399,17 @@ app.post(
     if (!isRecord(body)) {
       throw new HttpError(400, "A JSON request body is required.");
     }
+    const amount = body.amount;
     if (
-      typeof body.amount !== "number" ||
-      !Number.isSafeInteger(body.amount) ||
-      body.amount <= 0
+      typeof amount !== "number" ||
+      !Number.isSafeInteger(amount) ||
+      amount <= 0 ||
+      amount > MAX_PLEDGE_AMOUNT
     ) {
-      throw new HttpError(400, "amount must be a positive whole number of ZAR.");
+      throw new HttpError(
+        400,
+        `amount must be a whole number of ZAR from 1 to ${MAX_PLEDGE_AMOUNT}.`,
+      );
     }
 
     const campaignReference = db.collection("campaigns").doc(campaignId);
@@ -282,19 +423,28 @@ app.post(
       if (!campaign.exists) {
         throw new HttpError(404, "Campaign not found.");
       }
+      if (campaign.get("status") !== "funding") {
+        throw new HttpError(409, "This campaign is no longer accepting pledges.");
+      }
       transaction.create(contributionReference, {
         campaignId,
         userId: user.uid,
-        amount: body.amount,
+        amount,
         currency: "ZAR",
+        status: "pledged",
         createdAt,
+      });
+      transaction.update(campaignReference, {
+        pledgedAmount: FieldValue.increment(amount),
+        pledgeCount: FieldValue.increment(1),
+        updatedAt: createdAt,
       });
       const campaignTitle = campaign.get("title");
       transaction.create(
         notificationReference(user.uid),
         notificationData(
           "Campaigns",
-          `Your R${body.amount} pledge to ${
+          `Your R${amount} pledge to ${
             typeof campaignTitle === "string" ? campaignTitle : "the campaign"
           } was recorded`,
           createdAt,
@@ -305,8 +455,9 @@ app.post(
     response.status(201).json({
       id: contributionReference.id,
       campaignId,
-      amount: body.amount,
+      amount,
       currency: "ZAR",
+      status: "pledged",
       createdAt: responseCreatedAt(createdAt),
     });
   }),

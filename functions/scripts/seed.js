@@ -26,6 +26,8 @@ const documents = [
       description:
         "Large illegal dumping site along Musgrave Road near the Botanic Gardens.",
       goalAmount: 10000,
+      pledgedAmount: 0,
+      pledgeCount: 0,
       currency: "ZAR",
       status: "funding",
       createdAt: Timestamp.now(),

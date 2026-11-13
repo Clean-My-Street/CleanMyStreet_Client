@@ -2,15 +2,71 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Fields a user may store on their own profile. Anything else (roles,
+    // points, verification flags) can only be set by the server.
+    function isValidProfile(data) {
+      return data.keys().hasOnly([
+          'uid',
+          'fullName',
+          'email',
+          'homeAddress',
+          'phoneNumber',
+          'bio',
+          'profilePictureUrl',
+          'preferences',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid == request.auth.uid
+        && (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 100))
+        && (!('email' in data) || (data.email is string && data.email.size() <= 254))
+        && (!('homeAddress' in data) || (data.homeAddress is string && data.homeAddress.size() <= 300))
+        && (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 30))
+        && (!('bio' in data) || (data.bio is string && data.bio.size() <= 500))
+        && (!('profilePictureUrl' in data)
+          || data.profilePictureUrl == null
+          || (data.profilePictureUrl is string && data.profilePictureUrl.size() <= 2048))
+        && (!('preferences' in data) || isValidPreferences(data.preferences))
+        && (!('createdAt' in data) || data.createdAt is timestamp)
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidPreferences(preferences) {
+      return preferences is map
+        && preferences.keys().hasOnly([
+          'activityAlerts',
+          'cleanupReminders',
+          'locationServices',
+          'publicProfile',
+          'activitySharing',
+          'twoStepVerification'
+        ])
+        && (!('activityAlerts' in preferences) || preferences.activityAlerts is bool)
+        && (!('cleanupReminders' in preferences) || preferences.cleanupReminders is bool)
+        && (!('locationServices' in preferences) || preferences.locationServices is bool)
+        && (!('publicProfile' in preferences) || preferences.publicProfile is bool)
+        && (!('activitySharing' in preferences) || preferences.activitySharing is bool)
+        && (!('twoStepVerification' in preferences) || preferences.twoStepVerification is bool);
+    }
+
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null
         && request.auth.uid == userId
-        && request.resource.data.uid == userId;
+        && isValidProfile(request.resource.data);
       allow update: if request.auth != null
         && request.auth.uid == userId
-        && request.resource.data.uid == userId;
+        && isValidProfile(request.resource.data)
+        // createdAt is set once and never changed afterwards.
+        && (!('createdAt' in resource.data)
+          || request.resource.data.createdAt == resource.data.createdAt);
       allow delete: if false;
+
+      // IDs of reports this user made. Written only by the Cloud Function API.
+      match /reports/{reportId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
 
       match /savedItems/{savedItemId} {
         allow read, delete: if request.auth != null
@@ -52,8 +108,16 @@ service cloud.firestore {
 
     // Shared content is readable by signed-in users. All writes go through
     // the Cloud Function API, which uses the Admin SDK and bypasses these rules.
+    // Reports do not store who made them; see reportOwners.
     match /reports/{reportId} {
       allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Links each report to its reporter. Only the reporter can read their own.
+    match /reportOwners/{reportId} {
+      allow read: if request.auth != null
+        && resource.data.reporterId == request.auth.uid;
       allow write: if false;
     }
 
@@ -71,10 +135,16 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
 
+      // Each pledge names its user, so only that user can read it. Totals are
+      // public on the campaign document (pledgedAmount, pledgeCount).
       match /contributions/{contributionId} {
-        allow read: if request.auth != null;
+        allow read: if request.auth != null
+          && resource.data.userId == request.auth.uid;
         allow write: if false;
       }
     }
+
+    // rateLimits and anything not listed above are server-only: with no
+    // matching rule, client access is denied.
   }
 }

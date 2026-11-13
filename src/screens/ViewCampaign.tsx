@@ -8,7 +8,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { router } from "expo-router";
-import { JSX, useState } from "react";
+import { JSX, useEffect, useState } from "react";
 import {
 	Alert,
 	Image,
@@ -27,18 +27,49 @@ import {
 	FEATURED_CAMPAIGN_ID,
 	getApiErrorMessage,
 } from "../services/api";
+import {
+	type CampaignFunding,
+	subscribeCampaignFunding,
+} from "../services/campaignService";
 import { shareFeaturedCampaign } from "../services/shareService";
+
+const MAX_PLEDGE_AMOUNT = 50000;
+
+function formatRand(amount: number): string {
+	return `R${amount.toLocaleString("en-ZA")}`;
+}
 
 export default function ViewCampaign(): JSX.Element {
 	const [contributionAmount, setContributionAmount] = useState("100");
 	const [isContributing, setIsContributing] = useState(false);
+	const [funding, setFunding] = useState<CampaignFunding | null>(null);
+
+	useEffect(
+		() =>
+			subscribeCampaignFunding(FEATURED_CAMPAIGN_ID, setFunding, (error) => {
+				console.error("Could not load campaign funding.", error);
+			}),
+		[],
+	);
+
+	const fundedPercent =
+		funding && funding.goalAmount > 0
+			? Math.min(
+					100,
+					Math.round((funding.pledgedAmount / funding.goalAmount) * 100),
+				)
+			: 0;
 
 	const submitContribution = async () => {
 	  const amount = Number(contributionAmount);
-	  if (!Number.isSafeInteger(amount) || amount <= 0) {
+	  if (
+	    !Number.isSafeInteger(amount) ||
+	    amount <= 0 ||
+	    amount > MAX_PLEDGE_AMOUNT
+	  ) {
 	    Alert.alert(
 	      "Invalid amount",
-	      "Enter a positive whole-number amount in ZAR.",
+	      `Enter a whole-number amount from R1 to ${formatRand(MAX_PLEDGE_AMOUNT)}.`,
 	    );
 	    return;
 	  }
@@ -91,11 +122,23 @@ export default function ViewCampaign(): JSX.Element {
 
           <View style={styles.fundingPanel}>
             <Text style={styles.fundingSummary}>
-              R6,500 raised of R10,000 goal - 65%
+              {funding
+                ? `${formatRand(funding.pledgedAmount)} pledged of ${formatRand(
+                    funding.goalAmount,
+                  )} goal - ${fundedPercent}%`
+                : "Loading pledges..."}
             </Text>
-            <Text style={styles.fundingMeta}>23 backers - 4 days left</Text>
+            <Text style={styles.fundingMeta}>
+              {funding
+                ? `${funding.pledgeCount} ${
+                    funding.pledgeCount === 1 ? "pledge" : "pledges"
+                  }`
+                : " "}
+            </Text>
             <View style={styles.progressTrack}>
-              <View style={styles.progressFill} />
+              <View
+                style={[styles.progressFill, { width: `${fundedPercent}%` }]}
+              />
             </View>
 
             <Text style={styles.sectionLabel}>Choose an amount</Text>
@@ -271,7 +314,6 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   progressFill: {
-    width: "65%",
     height: "100%",
     backgroundColor: "#36B86B",
     borderRadius: 3,

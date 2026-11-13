@@ -27,8 +27,6 @@ export type CreateReportInput = {
   description: string;
   latitude: number;
   longitude: number;
-  imageUrl: string;
-  imagePath: string;
   wasteType: 'Household' | 'Construction' | 'Illegal Dumping';
 };
 
@@ -48,6 +46,7 @@ export type Contribution = {
   campaignId: string;
   amount: number;
   currency: 'ZAR';
+  status: 'pledged';
   createdAt: string;
 };
 
