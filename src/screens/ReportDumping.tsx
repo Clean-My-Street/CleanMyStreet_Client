@@ -17,8 +17,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ProfileNavButton } from "../components/ProfileNavButton";
 import Svg, { Circle, Path } from "react-native-svg";
+import { ProfileNavButton } from "../components/ProfileNavButton";
 
 export default function ReportDumping(): JSX.Element {
   const router = useRouter();
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
 
   /* BOTTOM NAVIGATION */
   bottomNav: {
-    minHeight: 51,
+    minHeight: 68,
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",

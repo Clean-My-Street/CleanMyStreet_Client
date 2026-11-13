@@ -1,4 +1,5 @@
 import {
+  faBookmark,
   faHome,
   faNewspaper,
   faUsers
@@ -16,7 +17,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
-import { faBookmark } from "@fortawesome/free-solid-svg-icons";
 import { useSavedItems } from "../hooks/useSavedItems";
 
 export default function PreviewCampaign(): JSX.Element {
@@ -77,7 +77,9 @@ export default function PreviewCampaign(): JSX.Element {
           <View style={styles.details}>
             <View style={styles.statusAndSave}>
               <View style={styles.statusPill}>
-                <Text style={styles.statusText}>Funding Open</Text>
+                <Pressable >
+                  <Text style={styles.statusText}>Funding Open</Text>
+                </Pressable>
               </View>
               <Pressable
                 style={styles.saveCampaignButton}
@@ -135,13 +137,11 @@ export default function PreviewCampaign(): JSX.Element {
             onPress={() => router.push("/news")}
             accessibilityLabel="View News"
           >
-              {" "}
               <FontAwesomeIcon
                 icon={faNewspaper}
                 size={20}
                 color="#124A2A"
               />
-              {" "}
           </Pressable>
           <Pressable
             style={styles.addButton}

@@ -158,7 +158,7 @@ export default function Home(): JSX.Element {
             onPress={() => router.push("/home")}
             accessibilityLabel="Go to Home"
           >
-            <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
+            <FontAwesomeIcon icon={faHome} size={20} color="#36B86B" />
           </Pressable>
           <Pressable
             onPress={() => router.push("/news")}

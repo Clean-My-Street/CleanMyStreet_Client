@@ -4,8 +4,8 @@ import {
   faUsers
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ExpoLocation from "expo-location";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { JSX, useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -320,12 +320,12 @@ export default function Location(): JSX.Element {
             onPress={() => router.push("/news")}
             accessibilityLabel="View News"
           >
-              {" "}
+              
               <FontAwesomeIcon
                 icon={faNewspaper}
                 size={20}
                 color="#124A2A"
-              />{" "}
+              />
           </Pressable>
 
           <Pressable

@@ -246,7 +246,7 @@ export default function CommunityGroups({
                     accessibilityLabel="Community"
                     accessibilityState={{ selected: true }}
                   >
-                    <FontAwesomeIcon icon={faUsers} size={20} color={colors.green} />
+                    <FontAwesomeIcon icon={faUsers} size={20} color="#36B86B" />
                   </Pressable>
                   <ProfileNavButton iconColor={colors.green} />
           </View>

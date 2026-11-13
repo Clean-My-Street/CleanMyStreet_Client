@@ -5,12 +5,12 @@ import {
   faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
-import { useRouter } from "expo-router";
 import * as ExpoLocation from "expo-location";
+import { useRouter } from "expo-router";
 import { JSX, useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Pressable,
@@ -23,9 +23,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
 import {
   fetchRelevantNews,
-  type GdeltLocationContext,
   NEWS_CATEGORIES,
   subscribeNewsArticles,
+  type GdeltLocationContext,
   type NewsArticle,
   type NewsCategory,
 } from "../services/newsService";
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 78,
+    minHeight: 68,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E2E6E3",
@@ -1012,18 +1012,15 @@ const styles = StyleSheet.create({
   },
 
   addButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#36B86B",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    width: 42, 
+    height: 42, 
+    borderRadius: 21, 
+    borderWidth: 1, 
+    borderColor: '#68706A', 
+    alignItems: 'center', 
+    justifyContent: 'center' },
 
-  addButtonText: {
-    color: "#FFFFFF",
-    fontSize: 30,
-    fontWeight: "400",
-    marginTop: -2,
-  },
+
+  addButtonText: { color: '#17201A', fontSize: 28, fontWeight: '300', lineHeight: 30 },
+
 });
