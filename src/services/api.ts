@@ -19,6 +19,17 @@ api.interceptors.request.use(async (config) => {
   config.headers.set('Authorization', `Bearer ${await user.getIdToken()}`);
   return config;
 });
+ export type Report = {
+  id: string;
+  description: string;
+  latitude: number | null;
+  longitude: number | null;
+  imageUrl: string | null;
+  wasteType: string | null;
+  reporterId: string;
+  status: string;
+  createdAt: string | null;
+};
 
 export type CommunityPostCategory = 'Cleanup' | 'Tips' | 'Question';
 
@@ -50,6 +61,11 @@ export type Contribution = {
 };
 
 export const FEATURED_CAMPAIGN_ID = 'musgrave-road-cleanup';
+
+export async function getReports(): Promise<Report[]> {
+  const response = await api.get<Report[]>("/reports");
+  return response.data;
+}
 
 export function getApiErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {

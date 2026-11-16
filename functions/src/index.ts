@@ -5,8 +5,8 @@ import express, {
   type RequestHandler,
   type Response,
 } from "express";
-import { getAuth, type DecodedIdToken } from "firebase-admin/auth";
 import { initializeApp } from "firebase-admin/app";
+import { getAuth, type DecodedIdToken } from "firebase-admin/auth";
 import {
   getFirestore,
   Timestamp,
@@ -17,8 +17,12 @@ initializeApp();
 
 const db = getFirestore();
 const app = express();
-
-app.use(cors({ origin: true, methods: ["POST", "OPTIONS"] }));
+app.use(
+  cors({
+    origin: true,
+    methods: ["GET", "POST", "OPTIONS"],
+  }),
+);
 app.use(express.json({ limit: "1mb" }));
 
 class HttpError extends Error {
@@ -172,6 +176,37 @@ app.post(
       ...report,
       createdAt: responseCreatedAt(createdAt),
     });
+  }),
+);
+app.get(
+  "/reports",
+  authenticate,
+  asyncHandler(async (_request, response) => {
+    const snapshot = await db
+      .collection("reports")
+      .orderBy("createdAt", "desc")
+      .get();
+
+    const reports = snapshot.docs.map((document) => {
+      const data = document.data();
+
+      return {
+        id: document.id,
+        description: data.description,
+        latitude: data.location?.latitude ?? null,
+        longitude: data.location?.longitude ?? null,
+        imageUrl: data.imageUrl ?? null,
+        wasteType: data.wasteType ?? null,
+        reporterId: data.reporterId,
+        status: data.status,
+        createdAt:
+          data.createdAt instanceof Timestamp
+            ? data.createdAt.toDate().toISOString()
+            : null,
+      };
+    });
+
+    response.status(200).json(reports);
   }),
 );
 

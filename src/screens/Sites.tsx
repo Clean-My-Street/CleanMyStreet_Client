@@ -1,71 +1,166 @@
+
 import {
   faHome,
   faNewspaper,
   faUser,
-  faUsers
+  faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
-import { JSX, useState } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { JSX, useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-type ViewMode = "Map" | "List";
+import WebMap from "../components/WebMap";
+import { getApiErrorMessage, getReports, Report } from "../services/api";
+import { auth, db } from "../services/firebase";
 
+type ViewMode = "Map" | "List";
 type Status = "Reported" | "Funding" | "Scheduled" | "Cleaned";
 
-type Site = {
-  name: string;
-  distance: string;
-  status: Status;
-};
-
-const sites: Site[] = [
-  {
-    name: "Musgrave Road",
-    distance: "0.8 km from you",
-    status: "Funding",
-  },
-  {
-    name: "Botanic Gardens",
-    distance: "1.2 km from you",
-    status: "Scheduled",
-  },
-  {
-    name: "Umbilo Road",
-    distance: "2.1 km from you",
-    status: "Reported",
-  },
-  {
-    name: "Glenwood Park",
-    distance: "2.8 km from you",
-    status: "Cleaned",
-  },
-  {
-    name: "Berea Road",
-    distance: "3.4 km from you",
-    status: "Funding",
-  },
+const filters: Status[] = [
+  "Reported",
+  "Funding",
+  "Scheduled",
+  "Cleaned",
 ];
 
-const filters: Status[] = ["Reported", "Funding", "Scheduled", "Cleaned"];
+function getDisplayStatus(status: string): Status {
+  switch (status.toLowerCase()) {
+    case "funding":
+      return "Funding";
+    case "scheduled":
+      return "Scheduled";
+    case "cleaned":
+      return "Cleaned";
+    default:
+      return "Reported";
+  }
+}
 
 export default function Sites(): JSX.Element {
   const router = useRouter();
+  const user = auth.currentUser;
 
   const [viewMode, setViewMode] = useState<ViewMode>("Map");
   const [activeFilter, setActiveFilter] = useState<Status | "All">("All");
 
-  const filteredSites =
+  const [reports, setReports] = useState<Report[]>([]);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [profilePictureUrl, setProfilePictureUrl] =useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  
+
+  // LOAD REPORTS FROM BACKEND
+  const loadReports = useCallback(async () => {
+    try {
+      setErrorMessage("");
+
+      const savedReports = await getReports();
+      setReports(savedReports);
+    } catch (error) {
+      console.error("Error loading reports:", error);
+
+      setErrorMessage(
+        getApiErrorMessage(
+          error,
+          "Could not load dumping-site reports.",
+        ),
+      );
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadReports();
+  }, [loadReports]);
+
+  // LOAD USER PROFILE PICTURE
+  useEffect(() => {
+    if (!user) {
+      setProfilePictureUrl(null);
+      return;
+    }
+
+    const userRef = doc(db, "users", user.uid);
+
+    const unsubscribe = onSnapshot(
+      userRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const savedUrl = snapshot.data().profilePictureUrl;
+
+          setProfilePictureUrl(
+            typeof savedUrl === "string" && savedUrl.trim() !== ""
+              ? savedUrl
+              : null,
+          );
+        } else {
+          setProfilePictureUrl(null);
+        }
+      },
+      (error) => {
+        console.error("Error loading profile picture:", error);
+      },
+    );
+
+    return unsubscribe;
+  }, [user?.uid]);
+
+  // PULL TO REFRESH
+  const refreshReports = () => {
+    setIsRefreshing(true);
+    loadReports();
+  };
+
+  // APPLY STATUS FILTER
+  const filteredReports =
     activeFilter === "All"
-      ? sites
-      : sites.filter((site) => site.status === activeFilter);
+      ? reports
+      : reports.filter(
+          (report) => getDisplayStatus(report.status) === activeFilter,
+        );
+
+        // Only reports with valid GPS coordinates can appear on the map.
+const reportsWithCoordinates = filteredReports.filter(
+  (report) =>
+    typeof report.latitude === "number" &&
+    Number.isFinite(report.latitude) &&
+    typeof report.longitude === "number" &&
+    Number.isFinite(report.longitude),
+);
+
+// Calculate the centre of the map using the available report locations.
+const mapRegion =
+  reportsWithCoordinates.length > 0
+    ? {
+        latitude:
+          reportsWithCoordinates.reduce(
+            (total, report) => total + report.latitude!,
+            0,
+          ) / reportsWithCoordinates.length,
+        longitude:
+          reportsWithCoordinates.reduce(
+            (total, report) => total + report.longitude!,
+            0,
+          ) / reportsWithCoordinates.length,
+        latitudeDelta: 0.03,
+        longitudeDelta: 0.03,
+      }
+    : null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -75,6 +170,7 @@ export default function Sites(): JSX.Element {
           <Pressable onPress={() => router.back()}>
             <Text style={styles.backIcon}>‹</Text>
           </Pressable>
+
           <View style={styles.logoMark}>
             <Image
               source={require("../../assets/images/cleanmystreet.png")}
@@ -88,6 +184,12 @@ export default function Sites(): JSX.Element {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refreshReports}
+            />
+          }
         >
           {/* MAP / LIST TOGGLE */}
           <View style={styles.viewToggle}>
@@ -170,64 +272,203 @@ export default function Sites(): JSX.Element {
             ))}
           </ScrollView>
 
-          {/* MAP */}
-          <View style={styles.mapBox}>
-            <Text style={styles.mapIcon}>⌖</Text>
+         {/* INTERACTIVE MAP */}
+{viewMode === "Map" ? (
+  <WebMap
+    reports={filteredReports}
+    onMarkerPress={(report) => setSelectedReport(report)}
+  />
+) : (
+  <View style={styles.mapBox}>
+    <Text style={styles.mapIcon}>⌖</Text>
 
-            <Text style={styles.mapTitle}>Map</Text>
+    <Text style={styles.mapTitle}>
+      {reports.length} Reported Sites
+    </Text>
 
-            <Text style={styles.mapSubtitle}>
-              Nearby dumping sites will appear here
-            </Text>
-          </View>
+    <Text style={styles.mapSubtitle}>
+      Your saved dumping-site reports are listed below.
+    </Text>
+  </View>
+)}
+
+{/* SELECTED MAP REPORT */}
+{viewMode === "Map" &&
+  selectedReport &&
+  filteredReports.some(
+    (report) => report.id === selectedReport.id
+  ) && (
+    <View style={styles.selectedReportCard}>
+      {selectedReport.imageUrl ? (
+        <Image
+          source={{ uri: selectedReport.imageUrl }}
+          style={styles.selectedReportImage}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.selectedReportImage}>
+          <Text style={styles.imageText}>No image</Text>
+        </View>
+      )}
+
+      <View style={styles.selectedReportInfo}>
+        <Text style={styles.siteName}>
+          {selectedReport.wasteType || "Dumping Site"}
+        </Text>
+
+        <Text style={styles.description}>
+          {selectedReport.description}
+        </Text>
+
+        <Text style={styles.distance}>
+          Status: {getDisplayStatus(selectedReport.status)}
+        </Text>
+      </View>
+
+      <Pressable onPress={() => setSelectedReport(null)}>
+        <Text style={styles.closeSelectedReport}>✕</Text>
+      </Pressable>
+    </View>
+  )}
+{/* SELECTED MAP REPORT */}
+{viewMode === "Map" &&
+  selectedReport &&
+  filteredReports.some((report) => report.id === selectedReport.id) && (
+    <View style={styles.selectedReportCard}>
+      {selectedReport.imageUrl ? (
+        <Image
+          source={{ uri: selectedReport.imageUrl }}
+          style={styles.selectedReportImage}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.selectedReportImage}>
+          <Text style={styles.imageText}>No image</Text>
+        </View>
+      )}
+
+      <View style={styles.selectedReportInfo}>
+        <Text style={styles.siteName}>
+          {selectedReport.wasteType || "Dumping Site"}
+        </Text>
+
+        <Text style={styles.description}>
+          {selectedReport.description}
+        </Text>
+
+        <Text style={styles.distance}>
+          Status: {getDisplayStatus(selectedReport.status)}
+        </Text>
+      </View>
+
+      <Pressable onPress={() => setSelectedReport(null)}>
+        <Text style={styles.closeSelectedReport}>✕</Text>
+      </Pressable>
+    </View>
+  )}
 
           {/* NEARBY SITES PANEL */}
           <View style={styles.nearbyPanel}>
             <Text style={styles.nearbyTitle}>
-              {filteredSites.length} Sites Nearby
+              {filteredReports.length} Sites
             </Text>
 
-            {viewMode === "Map" ? (
-              <Text style={styles.panelSubtitle}>
-                View nearby sites on the map or browse the list below
-              </Text>
-            ) : (
-              <Text style={styles.panelSubtitle}>
-                Browse all nearby dumping sites
-              </Text>
-            )}
+            <Text style={styles.panelSubtitle}>
+              Reports retrieved from the CleanMyStreet database
+            </Text>
 
-            {/* SITE LIST */}
-            <View style={styles.siteList}>
-              {filteredSites.map((site) => (
-                <Pressable key={site.name} style={styles.siteCard}>
-                  {/* IMAGE PLACEHOLDER */}
-                  <View style={styles.siteImage}>
-                    <Text style={styles.imageText}>Image</Text>
-                  </View>
+            {isLoading ? (
+              <View style={styles.messageContainer}>
+                <ActivityIndicator size="large" color="#FFFFFF" />
+                <Text style={styles.messageText}>
+                  Loading reports...
+                </Text>
+              </View>
+            ) : errorMessage ? (
+              <View style={styles.messageContainer}>
+                <Text style={styles.messageText}>{errorMessage}</Text>
 
-                  {/* SITE INFORMATION */}
-                  <View style={styles.siteInfo}>
-                    <Text style={styles.siteName}>{site.name}</Text>
-
-                    <Text style={styles.distance}>{site.distance}</Text>
-
-                    <View
-                      style={[styles.statusBadge, getStatusStyle(site.status)]}
-                    >
-                      <Text
-                        style={[
-                          styles.statusText,
-                          getStatusTextStyle(site.status),
-                        ]}
-                      >
-                        {site.status}
-                      </Text>
-                    </View>
-                  </View>
+                <Pressable
+                  style={styles.retryButton}
+                  onPress={loadReports}
+                >
+                  <Text style={styles.retryButtonText}>Try again</Text>
                 </Pressable>
-              ))}
-            </View>
+              </View>
+            ) : filteredReports.length === 0 ? (
+              <View style={styles.messageContainer}>
+                <Text style={styles.messageText}>
+                  No reports found.
+                </Text>
+                <Text style={styles.emptySubText}>
+                  Submitted dumping-site reports will appear here.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.siteList}>
+                {filteredReports.map((report) => {
+                  const status = getDisplayStatus(report.status);
+
+                  return (
+                    <View key={report.id} style={styles.siteCard}>
+                      {/* REPORT PHOTO */}
+                      {report.imageUrl ? (
+                        <Image
+                          source={{ uri: report.imageUrl }}
+                          style={styles.siteImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.siteImage}>
+                          <Text style={styles.imageText}>No image</Text>
+                        </View>
+                      )}
+
+                      {/* REPORT INFORMATION */}
+                      <View style={styles.siteInfo}>
+                        <Text style={styles.siteName}>
+                          {report.wasteType || "Dumping Site"}
+                        </Text>
+
+                        <Text style={styles.distance}>
+                          {report.latitude !== null &&
+                          report.longitude !== null
+                            ? `GPS: ${report.latitude.toFixed(5)}, ${report.longitude.toFixed(5)}`
+                            : "GPS coordinates unavailable"}
+                        </Text>
+
+                        <Text style={styles.description}>
+                          {report.description}
+                        </Text>
+
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            getStatusStyle(status),
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.statusText,
+                              getStatusTextStyle(status),
+                            ]}
+                          >
+                            {status}
+                          </Text>
+                        </View>
+
+                        {report.createdAt && (
+                          <Text style={styles.dateText}>
+                            Submitted:{" "}
+                            {new Date(report.createdAt).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -239,11 +480,16 @@ export default function Sites(): JSX.Element {
           >
             <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
           </Pressable>
+
           <Pressable
             onPress={() => router.push("/news")}
             accessibilityLabel="View News"
           >
-            <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
+            <FontAwesomeIcon
+              icon={faNewspaper}
+              size={20}
+              color="#124A2A"
+            />
           </Pressable>
 
           <Pressable
@@ -252,95 +498,60 @@ export default function Sites(): JSX.Element {
           >
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
+
           <Pressable
             onPress={() => router.push("/community")}
             accessibilityLabel="Open community messages"
           >
             <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
           </Pressable>
-<Pressable
-              onPress={() => router.push('/profile')}
-              accessibilityLabel="View profile"
-              style={styles.profileNavButton}
+
+          <Pressable
+            onPress={() => router.push("/profile")}
+            accessibilityLabel="View profile"
+            style={styles.profileNavButton}
           >
-        {profilePictureUrl ? (
-       <Image
-      source={{ uri: profilePictureUrl }}
-        style={styles.profileNavImage}
-        onError={() => {
-        console.error('Failed to load profile picture image.');
-        setProfilePictureUrl(null);
-        }}
-       />
-     ) : (
-        <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
-          )}
-      </Pressable>
+            {profilePictureUrl ? (
+              <Image
+                source={{ uri: profilePictureUrl }}
+                style={styles.profileNavImage}
+                onError={() => setProfilePictureUrl(null)}
+              />
+            ) : (
+              <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
+            )}
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
   );
 }
 
-/* STATUS BACKGROUND COLORS */
-
+// STATUS BACKGROUND COLORS
 function getStatusStyle(status: Status) {
   switch (status) {
     case "Funding":
-      return {
-        backgroundColor: "#DDF4E5",
-      };
-
+      return { backgroundColor: "#DDF4E5" };
     case "Scheduled":
-      return {
-        backgroundColor: "#FFF0D2",
-      };
-
+      return { backgroundColor: "#FFF0D2" };
     case "Reported":
-      return {
-        backgroundColor: "#E5E5E5",
-      };
-
+      return { backgroundColor: "#E5E5E5" };
     case "Cleaned":
-      return {
-        backgroundColor: "#DDE9FF",
-      };
-
-    default:
-      return {
-        backgroundColor: "#E5E5E5",
-      };
+      return { backgroundColor: "#DDE9FF" };
   }
 }
 
-/* STATUS TEXT COLORS */
-
+// STATUS TEXT COLORS
 function getStatusTextStyle(status: Status) {
   switch (status) {
     case "Funding":
-      return {
-        color: "#1F7A3F",
-      };
-
+      return { color: "#1F7A3F" };
     case "Scheduled":
-      return {
-        color: "#A66A00",
-      };
-
+      return { color: "#A66A00" };
     case "Reported":
-      return {
-        color: "#555555",
-      };
-
+      return { color: "#555555" };
     case "Cleaned":
-      return {
-        color: "#315C9B",
-      };
-
-    default:
-      return {
-        color: "#555555",
-      };
+      return { color: "#315C9B" };
   }
 }
 
@@ -359,8 +570,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 30,
   },
-
-  /* HEADER */
 
   header: {
     height: 55,
@@ -385,11 +594,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     marginRight: 8,
   },
-  logoText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "800",
-  },
+
   logo: {
     width: 30,
     height: 30,
@@ -402,8 +607,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginLeft: 9,
   },
-
-  /* MAP / LIST */
 
   viewToggle: {
     flexDirection: "row",
@@ -436,8 +639,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
-  /* FILTER */
-
   filterContainer: {
     gap: 7,
     paddingBottom: 12,
@@ -466,15 +667,12 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
-  /* MAP */
-
-  mapBox: {
-    height: 245,
-    backgroundColor: "#E3E3E3",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+ mapBox: {
+  height: 245,
+  backgroundColor: "#E3E3E3",
+  borderRadius: 12,
+  overflow: "hidden",
+},
 
   mapIcon: {
     color: "#1F7A3F",
@@ -492,9 +690,8 @@ const styles = StyleSheet.create({
     color: "#68706A",
     fontSize: 10,
     marginTop: 4,
+    textAlign: "center",
   },
-
-  /* NEARBY PANEL */
 
   nearbyPanel: {
     backgroundColor: "#1F7A3F",
@@ -518,14 +715,43 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
 
-  /* SITE CARD */
+  messageContainer: {
+    alignItems: "center",
+    paddingVertical: 25,
+    gap: 10,
+  },
+
+  messageText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    textAlign: "center",
+  },
+
+  emptySubText: {
+    color: "#D9F1E1",
+    fontSize: 10,
+    textAlign: "center",
+  },
+
+  retryButton: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 7,
+    paddingVertical: 9,
+    paddingHorizontal: 18,
+  },
+
+  retryButtonText: {
+    color: "#1F7A3F",
+    fontSize: 11,
+    fontWeight: "700",
+  },
 
   siteList: {
     gap: 10,
   },
 
   siteCard: {
-    minHeight: 88,
+    minHeight: 100,
     backgroundColor: "#E5E8E5",
     borderRadius: 12,
     padding: 9,
@@ -533,8 +759,8 @@ const styles = StyleSheet.create({
   },
 
   siteImage: {
-    width: 68,
-    height: 68,
+    width: 78,
+    height: 78,
     borderRadius: 9,
     backgroundColor: "#C7CBC7",
     alignItems: "center",
@@ -564,6 +790,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  description: {
+    color: "#17201A",
+    fontSize: 10,
+    marginTop: 5,
+  },
+
   statusBadge: {
     alignSelf: "flex-start",
     borderRadius: 9,
@@ -577,7 +809,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  /* BOTTOM NAVIGATION */
+  dateText: {
+    color: "#68706A",
+    fontSize: 9,
+    marginTop: 5,
+  },
 
   bottomNav: {
     minHeight: 68,
@@ -606,18 +842,61 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     lineHeight: 30,
   },
- profileNavButton: {
-  width: 36,
-  height: 36,
-  alignItems: 'center',
-  justifyContent: 'center',
+
+  profileNavButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  profileNavImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#36B86B",
+  },
+  map: {
+  width: "100%",
+  height: "100%",
 },
 
-profileNavImage: {
-  width: 28,
-  height: 28,
-  borderRadius: 14,
-  borderWidth: 1,
-  borderColor: '#36B86B',
+mapPlaceholder: {
+  flex: 1,
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 20,
+},
+
+selectedReportCard: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#E5E8E5",
+  borderRadius: 12,
+  padding: 10,
+  marginTop: 10,
+  marginBottom: 10,
+},
+
+selectedReportImage: {
+  width: 65,
+  height: 65,
+  borderRadius: 8,
+  backgroundColor: "#C7CBC7",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+selectedReportInfo: {
+  flex: 1,
+  marginLeft: 10,
+},
+
+closeSelectedReport: {
+  color: "#17201A",
+  fontSize: 18,
+  fontWeight: "700",
+  padding: 5,
 },
 });

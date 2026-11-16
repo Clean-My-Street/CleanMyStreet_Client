@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 import { doc, onSnapshot } from 'firebase/firestore';
-import { JSX, useEffect, useState } from "react";
+import { JSX, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -27,6 +27,7 @@ export default function ReportDumping(): JSX.Element {
   const user = auth.currentUser;
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);   
   const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
     
       useEffect(() => {
@@ -61,21 +62,61 @@ export default function ReportDumping(): JSX.Element {
     }, [user?.uid]);
     
 
+  const [cameraReady, setCameraReady] = useState(false);
+  const [isTakingPhoto, setIsTakingPhoto] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   const openCamera = async () => {
-    if (!permission?.granted) {
-      const result = await requestPermission();
+    try {
+      if (!permission?.granted) {
+        const result = await requestPermission();
 
-      if (!result.granted) {
-        Alert.alert(
-          "Camera Permission",
-          "Camera permission is required to take a photo of the dumping site.",
-        );
-        return;
+        if (!result.granted) {
+          Alert.alert(
+            "Camera Permission",
+            "Camera permission is required to take a photo of the dumping site.",
+          );
+          return;
+        }
       }
-    }
 
-    setCameraOpen(true);
+      setCameraReady(false);
+      setCameraOpen(true);
+    } catch (error) {
+      Alert.alert(
+        "Camera unavailable",
+        error instanceof Error ? error.message : "Could not open the camera.",
+      );
+    }
+  };
+
+  const takePhoto = async () => {
+    if (!cameraRef.current || !cameraReady || isTakingPhoto) return;
+
+    setIsTakingPhoto(true);
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      if (!photo?.uri) {
+        throw new Error("The camera did not return a photo.");
+      }
+      setPhotoUri(photo.uri);
+      setCameraOpen(false);
+    } catch (error) {
+      Alert.alert(
+        "Photo not captured",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setIsTakingPhoto(false);
+    }
+  };
+
+  const continueToLocation = () => {
+    if (!photoUri) {
+      Alert.alert("Photo required", "Take a photo of the dumping site first.");
+      return;
+    }
+    router.push({ pathname: "/location", params: { photoUri } });
   };
 
   return (
@@ -112,49 +153,93 @@ export default function ReportDumping(): JSX.Element {
           {/* UPLOAD IMAGE */}
           <Text style={styles.uploadTitle}>Upload an Image</Text>
 
-          {/* IMAGE / CAMERA AREA */}
-          <View style={styles.imageBox}>
-            {cameraOpen ? (
-              <View style={styles.cameraContainer}>
-                <CameraView style={styles.camera} />
+   {/* IMAGE / CAMERA AREA */}
+<View style={styles.imageBox}>
+  {cameraOpen ? (
+    <View style={styles.cameraContainer}>
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+        facing="back"
+        onCameraReady={() => setCameraReady(true)}
+      />
 
-                <Pressable
-                  style={styles.closeCameraButton}
-                  onPress={() => setCameraOpen(false)}
-                >
-                  <Text style={styles.closeCameraText}>Close Camera</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable style={styles.cameraButton} onPress={openCamera}>
-                <Svg
-                  width={150}
-                  height={140}
-                  viewBox="0 0 150 140"
-                  accessibilityLabel="Camera"
-                >
-                  <Path
-                    d="M20 48c0-8 6-14 14-14h13l13-18h45l13 18h13c8 0 14 6 14 14v62c0 8-6 14-14 14H34c-8 0-14-6-14-14V48Z"
-                    fill="none"
-                    stroke="#929292"
-                    strokeWidth={1.2}
-                  />
-                  <Circle
-                    cx={75}
-                    cy={77}
-                    r={29}
-                    fill="none"
-                    stroke="#929292"
-                    strokeWidth={1.2}
-                  />
-                </Svg>
-              </Pressable>
-            )}
-          </View>
+      <Pressable
+        style={styles.closeCameraButton}
+        onPress={() => {
+          setCameraOpen(false);
+          setCameraReady(false);
+        }}
+      >
+        <Text style={styles.closeCameraText}>Close Camera</Text>
+      </Pressable>
+
+      <Pressable
+        style={[
+          styles.captureButton,
+          (!cameraReady || isTakingPhoto) && styles.disabledButton,
+        ]}
+        onPress={takePhoto}
+        disabled={!cameraReady || isTakingPhoto}
+        accessibilityRole="button"
+        accessibilityLabel="Take report photo"
+      >
+        <Text style={styles.closeCameraText}>
+          {isTakingPhoto ? "Capturing..." : "Take Photo"}
+        </Text>
+      </Pressable>
+    </View>
+  ) : photoUri ? (
+    <View style={styles.cameraContainer}>
+      <Image source={{ uri: photoUri }} style={styles.camera} />
+
+      <Pressable
+        style={styles.closeCameraButton}
+        onPress={() => setPhotoUri(null)}
+      >
+        <Text style={styles.closeCameraText}>Retake Photo</Text>
+      </Pressable>
+    </View>
+  ) : (
+    <View style={styles.cameraPlaceholder}>
+      <Svg width={90} height={90} viewBox="0 0 150 140">
+        <Path
+          d="M20 48c0-8 6-14 14-14h13l13-18h45l13 18h13c8 0 14 6 14 14v62c0 8-6 14-14 14H34c-8 0-14-6-14-14V48Z"
+          fill="none"
+          stroke="#929292"
+          strokeWidth={2}
+        />
+        <Circle
+          cx={75}
+          cy={77}
+          r={29}
+          fill="none"
+          stroke="#929292"
+          strokeWidth={2}
+        />
+      </Svg>
+
+      <Text style={styles.cameraInstruction}>
+        Take a photo of the dumping site
+      </Text>
+
+      <Pressable
+        style={styles.takePictureButton}
+        onPress={openCamera}
+        accessibilityRole="button"
+        accessibilityLabel="Take a picture"
+      >
+        <Text style={styles.takePictureButtonText}>
+          Take a Picture
+        </Text>
+      </Pressable>
+    </View>
+  )}
+</View>
 
           <Pressable
             style={styles.nextButton}
-            onPress={() => router.push("/location")}
+            onPress={continueToLocation}
           >
             <Text style={styles.nextButtonText}>Next</Text>
           </Pressable>
@@ -337,12 +422,27 @@ const styles = StyleSheet.create({
 
   closeCameraButton: {
     position: "absolute",
-    bottom: 15,
+    bottom: 12,
     alignSelf: "center",
     backgroundColor: "#17201A",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 7,
+  },
+
+captureButton: {
+  position: "absolute",
+  bottom: 58,
+  alignSelf: "center",
+  backgroundColor: "#36B86B",
+  paddingHorizontal: 28,
+  paddingVertical: 14,
+  borderRadius: 8,
+  elevation: 4,
+},
+
+  disabledButton: {
+    opacity: 0.55,
   },
 
   closeCameraText: {
@@ -352,21 +452,20 @@ const styles = StyleSheet.create({
   },
 
   /* NEXT BUTTON */
-  nextButton: {
-    width: "100%",
-    height: 36,
-    backgroundColor: "#94D9AE",
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 9,
-  },
-
-  nextButtonText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    fontWeight: "400",
-  },
+nextButton: {
+  width: "100%",
+  height: 48,
+  backgroundColor: "#36B86B",
+  borderRadius: 8,
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 12,
+},
+nextButtonText: {
+  color: "#FFFFFF",
+  fontSize: 15,
+  fontWeight: "600",
+},
 
   /* NOTIFICATION */
   notificationText: {
@@ -434,5 +533,35 @@ profileNavImage: {
   borderRadius: 14,
   borderWidth: 1,
   borderColor: '#36B86B',
+},
+cameraPlaceholder: {
+  flex: 1,
+  width: "100%",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 20,
+},
+
+cameraInstruction: {
+  color: "#17201A",
+  fontSize: 14,
+  fontWeight: "500",
+  textAlign: "center",
+  marginTop: 12,
+  marginBottom: 18,
+},
+
+takePictureButton: {
+  backgroundColor: "#36B86B",
+  paddingHorizontal: 28,
+  paddingVertical: 14,
+  borderRadius: 8,
+  alignItems: "center",
+},
+
+takePictureButtonText: {
+  color: "#FFFFFF",
+  fontSize: 14,
+  fontWeight: "600",
 },
 });

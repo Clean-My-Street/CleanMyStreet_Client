@@ -1,12 +1,19 @@
+
 import {
   faHome,
   faNewspaper,
   faUser,
-  faUsers
+  faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
-import { useRouter } from "expo-router";
-import { doc, onSnapshot } from 'firebase/firestore';
+import * as Location from "expo-location";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { doc, onSnapshot } from "firebase/firestore";
+import {
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from "firebase/storage";
 import { JSX, useEffect, useState } from "react";
 import {
   Alert,
@@ -20,72 +27,203 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createReport, getApiErrorMessage } from "../services/api";
-import { auth, db } from '../services/firebase';
+import { auth, db, storage } from "../services/firebase";
 
-export default function Location(): JSX.Element {
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+export default function LocationScreen(): JSX.Element {
   const router = useRouter();
+  const { photoUri } = useLocalSearchParams<{
+    photoUri?: string | string[];
+  }>();
+
+  const capturedPhotoUri = Array.isArray(photoUri)
+    ? photoUri[0]
+    : photoUri;
+
   const user = auth.currentUser;
-  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
+
+  const [profilePictureUrl, setProfilePictureUrl] =
+    useState<string | null>(null);
+
   const [wasteType, setWasteType] = useState("Illegal Dumping");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-  if (!user) {
-    setProfilePictureUrl(null);
-    return;
-  }
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(true);
+  const [locationError, setLocationError] = useState("");
 
-  const userRef = doc(db, 'users', user.uid);
+  // GET DEVICE GPS LOCATION
+  const getDeviceLocation = async () => {
+    try {
+      setIsGettingLocation(true);
+      setLocationError("");
 
-  const unsubscribe = onSnapshot(
-    userRef,
-    (snapshot) => {
-      if (snapshot.exists()) {
-        const savedUrl = snapshot.data().profilePictureUrl;
+      const permission =
+        await Location.requestForegroundPermissionsAsync();
 
-        setProfilePictureUrl(
-          typeof savedUrl === 'string' && savedUrl.trim() !== ''
-            ? savedUrl
-            : null
-     );
-      } else {
-        setProfilePictureUrl(null);
+      if (permission.status !== "granted") {
+        setCoordinates(null);
+        setLocationError(
+          "Location permission denied. Please allow location access.",
+        );
+        return;
       }
-    },
-    (error) => {
-      console.error('Error loading profile picture:', error);
+
+      const currentPosition =
+        await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+      setCoordinates({
+        latitude: currentPosition.coords.latitude,
+        longitude: currentPosition.coords.longitude,
+      });
+    } catch (error) {
+      console.error("Error retrieving GPS location:", error);
+      setCoordinates(null);
+      setLocationError("Could not retrieve your location. Please try again.");
+    } finally {
+      setIsGettingLocation(false);
     }
-  );
+  };
 
-  return unsubscribe;
-}, [user?.uid]);
+  // GET LOCATION WHEN SCREEN OPENS
+  useEffect(() => {
+    getDeviceLocation();
+  }, []);
 
-
-
-  const submitReport = async () => {
-    const reportDescription = description.trim();
-    if (!reportDescription) {
-      Alert.alert("Description required", "Please describe the dumping site.");
+  // LOAD USER PROFILE PICTURE
+  useEffect(() => {
+    if (!user) {
+      setProfilePictureUrl(null);
       return;
     }
+
+    const userRef = doc(db, "users", user.uid);
+
+    const unsubscribe = onSnapshot(
+      userRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const savedUrl = snapshot.data().profilePictureUrl;
+
+          setProfilePictureUrl(
+            typeof savedUrl === "string" && savedUrl.trim() !== ""
+              ? savedUrl
+              : null,
+          );
+        } else {
+          setProfilePictureUrl(null);
+        }
+      },
+      (error) => {
+        console.error("Error loading profile picture:", error);
+      },
+    );
+
+    return unsubscribe;
+  }, [user?.uid]);
+
+  // UPLOAD PHOTO TO FIREBASE STORAGE
+  const uploadReportPhoto = async (uri: string): Promise<string> => {
+    if (!user) {
+      throw new Error("You must be signed in to upload a report.");
+    }
+
+    const response = await fetch(uri);
+    const photoBlob = await response.blob();
+
+    const filePath = `reports/${user.uid}/${Date.now()}.jpg`;
+    const fileReference = storageRef(storage, filePath);
+
+    await uploadBytes(fileReference, photoBlob, {
+      contentType: "image/jpeg",
+    });
+
+    return await getDownloadURL(fileReference);
+  };
+
+  // SUBMIT REPORT
+  const submitReport = async () => {
+    const reportDescription = description.trim();
+
+    if (!reportDescription) {
+      Alert.alert(
+        "Description required",
+        "Please describe the dumping site.",
+      );
+      return;
+    }
+
+    if (!capturedPhotoUri) {
+      Alert.alert(
+        "Photo required",
+        "Please go back and capture a photo of the dumping site.",
+      );
+      return;
+    }
+
+    if (!user) {
+      Alert.alert(
+        "Sign in required",
+        "Please sign in before submitting a report.",
+      );
+      return;
+    }
+
     if (isSubmitting) return;
 
+    // Make sure GPS coordinates are available.
+    let reportCoordinates = coordinates;
+
+    if (!reportCoordinates) {
+      await getDeviceLocation();
+      Alert.alert(
+        "Location required",
+        "Please check that your GPS is enabled and try submitting again.",
+      );
+      return;
+    }
+
     setIsSubmitting(true);
+
     try {
+      // First upload the captured photo.
+      const imageUrl = await uploadReportPhoto(capturedPhotoUri);
+
+      // Then save the report through the backend API.
       await createReport({
         description: reportDescription,
         wasteType,
+        latitude: reportCoordinates.latitude,
+        longitude: reportCoordinates.longitude,
+        imageUrl,
       });
+
       Alert.alert(
         "Report submitted",
         "Your dumping-site report has been saved for review.",
-        [{ text: "OK", onPress: () => router.replace("/sites") }],
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/sites"),
+          },
+        ],
       );
     } catch (error) {
+      console.error("Error submitting report:", error);
+
       Alert.alert(
         "Report not submitted",
-        getApiErrorMessage(error, "Please try again."),
+        getApiErrorMessage(
+          error,
+          "Something went wrong while submitting your report. Please try again.",
+        ),
       );
     } finally {
       setIsSubmitting(false);
@@ -118,13 +256,40 @@ export default function Location(): JSX.Element {
           {/* LOCATION */}
           <Text style={styles.sectionTitle}>Location (GPS)</Text>
 
-          {/* MAP PLACEHOLDER */}
           <View style={styles.mapBox}>
             <Text style={styles.mapIcon}>⌖</Text>
-            <Text style={styles.mapText}>Map</Text>
-            <Text style={styles.mapSubText}>
-              Live location will appear here
+            <Text style={styles.mapText}>
+              {isGettingLocation
+                ? "Getting your location..."
+                : coordinates
+                  ? "Location captured"
+                  : "Location unavailable"}
             </Text>
+
+            {coordinates ? (
+              <>
+                <Text style={styles.mapSubText}>
+                  Latitude: {coordinates.latitude.toFixed(6)}
+                </Text>
+                <Text style={styles.mapSubText}>
+                  Longitude: {coordinates.longitude.toFixed(6)}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.mapSubText}>
+                {locationError || "Waiting for GPS location"}
+              </Text>
+            )}
+
+            <Pressable
+              onPress={getDeviceLocation}
+              disabled={isGettingLocation}
+              style={styles.locationButton}
+            >
+              <Text style={styles.locationButtonText}>
+                {isGettingLocation ? "Getting location..." : "Refresh location"}
+              </Text>
+            </Pressable>
           </View>
 
           {/* DESCRIPTION */}
@@ -198,7 +363,10 @@ export default function Location(): JSX.Element {
 
           {/* SUBMIT BUTTON */}
           <Pressable
-            style={styles.submitButton}
+            style={[
+              styles.submitButton,
+              isSubmitting && styles.disabledButton,
+            ]}
             onPress={submitReport}
             disabled={isSubmitting}
             accessibilityRole="button"
@@ -223,16 +391,16 @@ export default function Location(): JSX.Element {
           >
             <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
           </Pressable>
+
           <Pressable
             onPress={() => router.push("/news")}
             accessibilityLabel="View News"
           >
-              {" "}
-              <FontAwesomeIcon
-                icon={faNewspaper}
-                size={20}
-                color="#124A2A"
-              />{" "}
+            <FontAwesomeIcon
+              icon={faNewspaper}
+              size={20}
+              color="#124A2A"
+            />
           </Pressable>
 
           <Pressable
@@ -241,30 +409,32 @@ export default function Location(): JSX.Element {
           >
             <Text style={styles.addButtonText}>+</Text>
           </Pressable>
+
           <Pressable
             onPress={() => router.push("/notifications")}
             accessibilityLabel="View notifications"
           >
             <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
           </Pressable>
-   <Pressable
-                 onPress={() => router.push('/profile')}
-                 accessibilityLabel="View profile"
-                 style={styles.profileNavButton}
-             >
-           {profilePictureUrl ? (
-          <Image
-         source={{ uri: profilePictureUrl }}
-           style={styles.profileNavImage}
-           onError={() => {
-           console.error('Failed to load profile picture image.');
-           setProfilePictureUrl(null);
-           }}
-          />
-        ) : (
-           <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
-             )}
-         </Pressable>
+
+          <Pressable
+            onPress={() => router.push("/profile")}
+            accessibilityLabel="View profile"
+            style={styles.profileNavButton}
+          >
+            {profilePictureUrl ? (
+              <Image
+                source={{ uri: profilePictureUrl }}
+                style={styles.profileNavImage}
+                onError={() => {
+                  console.error("Failed to load profile picture image.");
+                  setProfilePictureUrl(null);
+                }}
+              />
+            ) : (
+              <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
+            )}
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>
@@ -272,7 +442,6 @@ export default function Location(): JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  /* SCREEN */
   safeArea: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -288,7 +457,6 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  /* HEADER */
   header: {
     height: 48,
     flexDirection: "row",
@@ -312,7 +480,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  logo: { width: 52, height: 52, resizeMode: "contain" },
+  logo: {
+    width: 52,
+    height: 52,
+    resizeMode: "contain",
+  },
 
   logoText: {
     color: "#FFFFFF",
@@ -327,7 +499,6 @@ const styles = StyleSheet.create({
     marginLeft: 9,
   },
 
-  /* SECTION TITLES */
   sectionTitle: {
     color: "#17201A",
     fontSize: 15,
@@ -336,15 +507,15 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
-  /* MAP */
   mapBox: {
     width: "100%",
-    height: 240,
+    minHeight: 240,
     backgroundColor: "#E5E5E5",
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 24,
+    padding: 12,
   },
 
   mapIcon: {
@@ -363,9 +534,23 @@ const styles = StyleSheet.create({
     color: "#68706A",
     fontSize: 11,
     marginTop: 4,
+    textAlign: "center",
   },
 
-  /* DESCRIPTION */
+  locationButton: {
+    marginTop: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    backgroundColor: "#1F7A3F",
+    borderRadius: 7,
+  },
+
+  locationButtonText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
   descriptionBox: {
     width: "100%",
     height: 170,
@@ -377,7 +562,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
 
-  /* WASTE TYPE */
   wasteTypeContainer: {
     flexDirection: "row",
     gap: 8,
@@ -409,7 +593,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
-  /* SUBMIT */
   submitButton: {
     width: "100%",
     height: 46,
@@ -420,13 +603,16 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
+  disabledButton: {
+    opacity: 0.6,
+  },
+
   submitButtonText: {
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "700",
   },
 
-  /* NOTIFICATION */
   notificationText: {
     color: "#68706A",
     fontSize: 11,
@@ -436,7 +622,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  /* BOTTOM NAVIGATION */
   bottomNav: {
     minHeight: 68,
     borderTopWidth: 1,
@@ -448,24 +633,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
 
-  navItem: {
-    minWidth: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  navIcon: {
-    color: "#68706A",
-    fontSize: 8,
-    fontWeight: "800",
-    marginBottom: 5,
-  },
-
-  navLabel: {
-    color: "#68706A",
-    fontSize: 9,
-  },
-
   addButton: {
     width: 42,
     height: 42,
@@ -475,7 +642,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  
 
   addButtonText: {
     color: "#17201A",
@@ -483,18 +649,19 @@ const styles = StyleSheet.create({
     fontWeight: "300",
     lineHeight: 30,
   },
- profileNavButton: {
-  width: 36,
-  height: 36,
-  alignItems: 'center',
-  justifyContent: 'center',
-},
 
-profileNavImage: {
-  width: 28,
-  height: 28,
-  borderRadius: 14,
-  borderWidth: 1,
-  borderColor: '#36B86B',
-},
+  profileNavButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  profileNavImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#36B86B",
+  },
 });

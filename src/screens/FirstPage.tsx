@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
+import { router } from 'expo-router';
 import { JSX, useState } from 'react';
 import {
   ActivityIndicator,
@@ -142,7 +142,7 @@ export function FirstPage(): JSX.Element {
           break;
       }
 
-      console.error('Authentication error:', error.code, error.message);
+      console.error('Wrong Password/Email:', error.code, error.message);
 
       Alert.alert(
         isCreatingAccount ? 'Registration failed' : 'Login failed',
