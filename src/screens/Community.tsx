@@ -8,8 +8,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
-import { JSX, useMemo, useState } from "react";
+import { JSX, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -22,58 +23,29 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
 import { feedColors as colors } from "../constants/feedColors";
-import { createCommunityPost } from "../services/api";
+import {
+  createCommunityComment,
+  createCommunityPost,
+  getApiErrorMessage,
+  toggleCommunityPostLike,
+} from "../services/api";
 import type { CommunityGroup } from "../services/communityGroupService";
+import {
+  initialsOf,
+  subscribeCommunityPosts,
+  subscribeLikedPostIds,
+  subscribePostComments,
+  type FeedComment,
+  type FeedPost,
+} from "../services/communityService";
+import { auth } from "../services/firebase";
+import { formatRelativeTime } from "../utils/formatRelativeTime";
 
 type Category = "Cleanup" | "Tips" | "Question";
 type Filter = "All" | Category;
-type CommunityPost = {
-  id: string;
-  name: string;
-  initials: string;
-  time: string;
-  category: Category;
-  body: string;
-  likes: number;
-  comments: string[];
-  liked?: boolean;
-};
 
 const filters: Filter[] = ["All", "Cleanup", "Tips", "Question"];
 const categories: Category[] = ["Cleanup", "Tips", "Question"];
-
-const starterPosts: CommunityPost[] = [
-  {
-    id: "sydenham-cleanup",
-    name: "Thandi M.",
-    initials: "TM",
-    time: "2h ago",
-    category: "Cleanup",
-    body: "Who is donating to the Sydenham Rd cleanup, it looks like a good site that we can get done easily.",
-    likes: 12,
-    comments: ["James N.  Count me in, bringing two friends."],
-  },
-  {
-    id: "recycling-tip",
-    name: "James N.",
-    initials: "JN",
-    time: "5h ago",
-    category: "Tips",
-    body: "Tip: sorting recyclables at home first makes the drop-off at the Musgrave site so much quicker.",
-    likes: 8,
-    comments: [],
-  },
-  {
-    id: "park-question",
-    name: "Lerato K.",
-    initials: "LK",
-    time: "1d ago",
-    category: "Question",
-    body: "Is the Glenwood Park cleanup a good site to contribute to?",
-    likes: 5,
-    comments: [],
-  },
-];
 
 export default function Community({
   communityGroup,
@@ -83,14 +55,46 @@ export default function Community({
   onChangeGroup?: () => void;
 }): JSX.Element {
   const router = useRouter();
+  const userId = auth.currentUser?.uid;
+  const myInitials = initialsOf(
+    auth.currentUser?.displayName ??
+      auth.currentUser?.email?.split("@")[0] ??
+      "",
+  );
   const [activeFilter, setActiveFilter] = useState<Filter>("All");
-  const [posts, setPosts] = useState(starterPosts);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [postsError, setPostsError] = useState<string | null>(null);
+  const [postsRetry, setPostsRetry] = useState(0);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [pendingLikes, setPendingLikes] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
   const [postCategory, setPostCategory] = useState<Category>("Cleanup");
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [replyDraft, setReplyDraft] = useState("");
+  const [openPostId, setOpenPostId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsLoadingPosts(true);
+    setPostsError(null);
+    return subscribeCommunityPosts(
+      (nextPosts) => {
+        setPosts(nextPosts);
+        setIsLoadingPosts(false);
+      },
+      (error) => {
+        setPostsError(error.message);
+        setIsLoadingPosts(false);
+      },
+    );
+  }, [postsRetry]);
+
+  useEffect(() => {
+    if (!userId) return;
+    return subscribeLikedPostIds(userId, setLikedPostIds, (error) =>
+      console.warn("Could not load liked posts.", error),
+    );
+  }, [userId]);
 
   const visiblePosts = useMemo(
     () =>
@@ -106,67 +110,38 @@ export default function Community({
 
     setIsPublishing(true);
     try {
-      const savedPost = await createCommunityPost({
-        body,
-        category: postCategory,
-      });
-      const name = savedPost.authorName;
-      const nextPost: CommunityPost = {
-        id: savedPost.id,
-        name,
-        initials: name
-          .split(/\s+/)
-          .map((part) => part[0])
-          .join("")
-          .slice(0, 2)
-          .toUpperCase(),
-        time: "Just now",
-        category: savedPost.category,
-        body: savedPost.body,
-        likes: savedPost.likes,
-        comments: [],
-      };
-      setPosts((current) => [nextPost, ...current]);
+      // The new post reaches the feed through the live subscription.
+      await createCommunityPost({ body, category: postCategory });
       setDraft("");
       setActiveFilter("All");
     } catch (error) {
       Alert.alert(
         "Post not published",
-        error instanceof Error
-          ? error.message
-          : "The post could not be saved. Please try again.",
+        getApiErrorMessage(error, "The post could not be saved. Please try again."),
       );
     } finally {
       setIsPublishing(false);
     }
   };
 
-  const toggleLike = (postId: string) => {
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              liked: !post.liked,
-              likes: post.likes + (post.liked ? -1 : 1),
-            }
-          : post,
-      ),
-    );
-  };
-
-  const publishReply = (postId: string) => {
-    const text = replyDraft.trim();
-    if (!text) return;
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? { ...post, comments: [...post.comments, `Mikasi Inc  ${text}`] }
-          : post,
-      ),
-    );
-    setReplyDraft("");
-    setReplyTo(null);
+  const toggleLike = async (postId: string) => {
+    if (pendingLikes.has(postId)) return;
+    setPendingLikes((current) => new Set(current).add(postId));
+    try {
+      // Like counts and the liked state update through the subscriptions.
+      await toggleCommunityPostLike(postId);
+    } catch (error) {
+      Alert.alert(
+        "Could not update like",
+        getApiErrorMessage(error, "Please try again."),
+      );
+    } finally {
+      setPendingLikes((current) => {
+        const next = new Set(current);
+        next.delete(postId);
+        return next;
+      });
+    }
   };
 
   return (
@@ -248,7 +223,7 @@ export default function Community({
         >
           <View style={styles.composerCard}>
             <View style={styles.composerTop}>
-              <Avatar initials="MI" />
+              <Avatar initials={myInitials} />
               <TextInput
                 value={draft}
                 onChangeText={setDraft}
@@ -314,13 +289,50 @@ export default function Community({
             </View>
           </View>
 
-          {visiblePosts.map((post) => (
+          {isLoadingPosts && (
+            <View style={styles.feedStatus}>
+              <ActivityIndicator color={colors.green} />
+              <Text style={styles.feedStatusText}>Loading posts...</Text>
+            </View>
+          )}
+          {!isLoadingPosts && postsError && (
+            <View style={styles.feedStatus}>
+              <Text style={styles.feedStatusTitle}>Could not load posts</Text>
+              <Text style={styles.feedStatusText}>{postsError}</Text>
+              <Pressable
+                onPress={() => setPostsRetry((count) => count + 1)}
+                style={styles.retryButton}
+                accessibilityRole="button"
+              >
+                <Text style={styles.retryButtonText}>Try again</Text>
+              </Pressable>
+            </View>
+          )}
+          {!isLoadingPosts && !postsError && visiblePosts.length === 0 && (
+            <View style={styles.feedStatus}>
+              <Text style={styles.feedStatusTitle}>
+                {activeFilter === "All"
+                  ? "No posts yet"
+                  : `No ${activeFilter} posts yet`}
+              </Text>
+              <Text style={styles.feedStatusText}>
+                Be the first to share something with your neighbours.
+              </Text>
+            </View>
+          )}
+
+          {visiblePosts.map((post) => {
+            const liked = likedPostIds.has(post.id);
+            const isOpen = openPostId === post.id;
+            return (
             <View key={post.id} style={styles.postCard}>
               <View style={styles.postHeader}>
-                <Avatar initials={post.initials} />
+                <Avatar initials={initialsOf(post.authorName)} />
                 <View style={styles.postAuthor}>
-                  <Text style={styles.authorName}>{post.name}</Text>
-                  <Text style={styles.postTime}>{post.time}</Text>
+                  <Text style={styles.authorName}>{post.authorName}</Text>
+                  <Text style={styles.postTime}>
+                    {formatRelativeTime(post.createdAt)}
+                  </Text>
                 </View>
                 <View style={styles.postCategory}>
                   <Text style={styles.postCategoryText}>
@@ -332,72 +344,38 @@ export default function Community({
               <View style={styles.postDivider} />
               <View style={styles.postActions}>
                 <Pressable
-                  style={[
-                    styles.postAction,
-                    post.liked && styles.likedAction,
-                  ]}
-                  onPress={() => toggleLike(post.id)}
+                  style={[styles.postAction, liked && styles.likedAction]}
+                  onPress={() => void toggleLike(post.id)}
+                  disabled={pendingLikes.has(post.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${post.liked ? "Unlike" : "Like"} post, ${post.likes} likes`}
+                  accessibilityLabel={`${liked ? "Unlike" : "Like"} post, ${post.likes} likes`}
                 >
                   <FontAwesomeIcon
                     icon={faHeart}
                     size={11}
-                    color={post.liked ? "#E25555" : colors.muted}
+                    color={liked ? "#E25555" : colors.muted}
                   />
                   <Text style={styles.actionCount}>{post.likes}</Text>
                 </Pressable>
                 <Pressable
                   style={styles.postAction}
-                  onPress={() =>
-                    setReplyTo(replyTo === post.id ? null : post.id)
-                  }
+                  onPress={() => setOpenPostId(isOpen ? null : post.id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${post.comments.length} comments`}
+                  accessibilityLabel={`${post.commentCount} comments`}
+                  accessibilityState={{ expanded: isOpen }}
                 >
                   <FontAwesomeIcon
                     icon={faComment}
                     size={11}
                     color={colors.muted}
                   />
-                  <Text style={styles.actionCount}>
-                    {post.comments.length}
-                  </Text>
+                  <Text style={styles.actionCount}>{post.commentCount}</Text>
                 </Pressable>
               </View>
-              {post.comments.map((comment, index) => (
-                <View
-                  key={`${post.id}-comment-${index}`}
-                  style={styles.commentBubble}
-                >
-                  <Text style={styles.commentText}>{comment}</Text>
-                </View>
-              ))}
-              {replyTo === post.id && (
-                <View style={styles.replyRow}>
-                  <TextInput
-                    value={replyDraft}
-                    onChangeText={setReplyDraft}
-                    placeholder="Write a comment..."
-                    placeholderTextColor={colors.muted}
-                    style={styles.replyInput}
-                    accessibilityLabel="Write a comment"
-                  />
-                  <Pressable
-                    onPress={() => publishReply(post.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Send comment"
-                  >
-                    <FontAwesomeIcon
-                      icon={faPaperPlane}
-                      size={14}
-                      color={colors.green}
-                    />
-                  </Pressable>
-                </View>
-              )}
+              {isOpen && <PostComments postId={post.id} />}
             </View>
-          ))}
+            );
+          })}
         </ScrollView>
 
         <View style={styles.bottomNav}>
@@ -439,6 +417,93 @@ export default function Community({
         </View>
       </View>
     </SafeAreaView>
+  );
+}
+
+// A post's comments and the box for adding one. Mounted only while the post
+// is open, so the feed doesn't keep a listener per post.
+function PostComments({ postId }: { postId: string }): JSX.Element {
+  const [comments, setComments] = useState<FeedComment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  useEffect(
+    () =>
+      subscribePostComments(
+        postId,
+        (nextComments) => {
+          setComments(nextComments);
+          setIsLoading(false);
+        },
+        (loadError) => {
+          setError(loadError.message);
+          setIsLoading(false);
+        },
+      ),
+    [postId],
+  );
+
+  const sendComment = async () => {
+    const text = draft.trim();
+    if (!text || isSending) return;
+    setIsSending(true);
+    try {
+      await createCommunityComment(postId, text);
+      setDraft("");
+    } catch (sendError) {
+      Alert.alert(
+        "Comment not sent",
+        getApiErrorMessage(sendError, "Please try again."),
+      );
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <>
+      {isLoading && <Text style={styles.commentStatus}>Loading comments...</Text>}
+      {!isLoading && error && (
+        <Text style={styles.commentStatus}>Could not load comments: {error}</Text>
+      )}
+      {!isLoading && !error && comments.length === 0 && (
+        <Text style={styles.commentStatus}>No comments yet.</Text>
+      )}
+      {comments.map((comment) => (
+        <View key={comment.id} style={styles.commentBubble}>
+          <Text style={styles.commentText}>
+            <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+            {"  "}
+            {comment.body}
+          </Text>
+        </View>
+      ))}
+      <View style={styles.replyRow}>
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder="Write a comment..."
+          placeholderTextColor={colors.muted}
+          style={styles.replyInput}
+          maxLength={1000}
+          accessibilityLabel="Write a comment"
+        />
+        <Pressable
+          onPress={() => void sendComment()}
+          disabled={!draft.trim() || isSending}
+          accessibilityRole="button"
+          accessibilityLabel="Send comment"
+        >
+          {isSending ? (
+            <ActivityIndicator size="small" color={colors.green} />
+          ) : (
+            <FontAwesomeIcon icon={faPaperPlane} size={14} color={colors.green} />
+          )}
+        </Pressable>
+      </View>
+    </>
   );
 }
 
@@ -649,6 +714,25 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   commentText: { color: colors.ink, fontSize: 11 },
+  commentAuthor: { fontWeight: "700" },
+  commentStatus: { color: colors.muted, fontSize: 10, marginTop: 8 },
+  feedStatus: {
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  feedStatusTitle: { color: colors.ink, fontSize: 13, fontWeight: "700" },
+  feedStatusText: { color: colors.muted, fontSize: 11, textAlign: "center" },
+  retryButton: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: colors.green,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  retryButtonText: { color: colors.green, fontSize: 11, fontWeight: "700" },
   replyRow: {
     flexDirection: "row",
     alignItems: "center",

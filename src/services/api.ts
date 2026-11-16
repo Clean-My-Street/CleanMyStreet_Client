@@ -28,6 +28,16 @@ export type CreateReportInput = {
   latitude: number;
   longitude: number;
   wasteType: 'Household' | 'Construction' | 'Illegal Dumping';
+  siteName?: string;
+};
+
+export type CommunityComment = {
+  id: string;
+  postId: string;
+  body: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
 };
 
 export type CommunityPost = {
@@ -67,6 +77,7 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
 export async function createReport(input: CreateReportInput) {
   const response = await api.post<{
     id: string;
+    campaignId: string;
     status: 'pending_verification';
     createdAt: string;
   }>('/reports', input);
@@ -78,6 +89,24 @@ export async function createCommunityPost(input: {
   category: CommunityPostCategory;
 }) {
   const response = await api.post<CommunityPost>('/community/posts', input);
+  return response.data;
+}
+
+// Sends an empty JSON body: Cloud Functions rejects a POST without one (411).
+export async function toggleCommunityPostLike(postId: string) {
+  const response = await api.post<{
+    postId: string;
+    liked: boolean;
+    likes: number;
+  }>(`/community/posts/${encodeURIComponent(postId)}/likes`, {});
+  return response.data;
+}
+
+export async function createCommunityComment(postId: string, body: string) {
+  const response = await api.post<CommunityComment>(
+    `/community/posts/${encodeURIComponent(postId)}/comments`,
+    { body },
+  );
   return response.data;
 }
 

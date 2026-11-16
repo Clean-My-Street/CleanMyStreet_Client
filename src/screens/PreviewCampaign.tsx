@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { router } from "expo-router";
 import { JSX } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -17,16 +18,65 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
+import { useCampaign } from "../hooks/useCampaign";
 import { useSavedItems } from "../hooks/useSavedItems";
+import {
+  campaignStatusLabel,
+  fundedPercent,
+} from "../services/campaignService";
 
 export default function PreviewCampaign(): JSX.Element {
   const savedItemsState = useSavedItems();
+  const { campaignId, campaign, isLoading, error } = useCampaign();
+
+  if (!campaign) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.screen, styles.centered]}>
+          {isLoading ? (
+            <ActivityIndicator color="#1F7A3F" />
+          ) : (
+            <>
+              <Text style={styles.missingTitle}>
+                {error ? "Could not load campaign" : "Campaign not found"}
+              </Text>
+              <Text style={styles.description}>
+                {error ?? "This campaign may have been removed."}
+              </Text>
+              <Pressable
+                style={styles.missingButton}
+                onPress={() => router.back()}
+                accessibilityRole="button"
+              >
+                <Text style={styles.missingButtonText}>Go back</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const statusLabel = campaignStatusLabel(campaign.status);
+  const percent = fundedPercent(campaign);
   const campaignToSave = {
-    itemId: "musgrave-road-cleanup",
+    itemId: campaign.id,
     type: "campaign" as const,
-    title: "Musgrave Rd Cleanup",
-    detail: "Community campaign · Funding open",
+    title: campaign.title,
+    detail: `Community campaign · ${statusLabel}`,
   };
+  const updates = [
+    campaign.createdAt
+      ? `Cleanup campaign created on ${campaign.createdAt.toLocaleDateString(
+          undefined,
+          { day: "numeric", month: "short", year: "numeric" },
+        )}`
+      : "Cleanup campaign created",
+    `${campaign.pledgeCount} ${
+      campaign.pledgeCount === 1 ? "pledge" : "pledges"
+    } so far`,
+    `${percent}% of funding goal reached`,
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -50,36 +100,43 @@ export default function PreviewCampaign(): JSX.Element {
               />
             </View>
 
-            <Text style={styles.headerTitle}>
-              Musgrave Road, near Botanic Gardens
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {campaign.location ?? campaign.title}
             </Text>
           </View>
 
           <View style={styles.photoPlaceholder}>
-            <Image
-              source={require("../../assets/images/dumpingsite.jpeg")}
-              style={styles.dumpingSiteImage}
-            />
+            {campaign.imageUrl && (
+              <Image
+                source={{ uri: campaign.imageUrl }}
+                style={styles.dumpingSiteImage}
+                accessibilityLabel={`Photo for ${campaign.title}`}
+              />
+            )}
             <Pressable
               style={styles.viewCampaignButton}
               onPress={() => {
-                router.push("/viewcampaign");
+                router.push({
+                  pathname: "/viewcampaign",
+                  params: { campaignId },
+                });
               }}
               accessibilityLabel="View Campaign"
             >
               <Text style={styles.viewCampaignText}>View Campaign</Text>
-              <Text style={styles.coordinates}>
-                GPS: -29.8587° S, 31.0283° E
-              </Text>
+              {campaign.latitude !== null && campaign.longitude !== null && (
+                <Text style={styles.coordinates}>
+                  GPS: {campaign.latitude.toFixed(4)},{" "}
+                  {campaign.longitude.toFixed(4)}
+                </Text>
+              )}
             </Pressable>
           </View>
 
           <View style={styles.details}>
             <View style={styles.statusAndSave}>
               <View style={styles.statusPill}>
-                <Pressable >
-                  <Text style={styles.statusText}>Funding Open</Text>
-                </Pressable>
+                <Text style={styles.statusText}>{statusLabel}</Text>
               </View>
               <Pressable
                 style={styles.saveCampaignButton}
@@ -93,7 +150,7 @@ export default function PreviewCampaign(): JSX.Element {
                 accessibilityRole="button"
                 accessibilityLabel={`${
                   savedItemsState.isSaved(campaignToSave) ? "Remove" : "Save"
-                } Musgrave Road Cleanup campaign`}
+                } ${campaign.title} campaign`}
               >
                 <FontAwesomeIcon
                   icon={faBookmark}
@@ -112,17 +169,15 @@ export default function PreviewCampaign(): JSX.Element {
 
             <Text style={styles.sectionLabel}>Description</Text>
             <Text style={styles.description}>
-              Large illegal dumping site along Musgrave Road near the Botanic
-              Gardens entrance. Mostly household waste and some garden refuse,
-              roughly 15 square metres, spilling onto the pavement.
+              {campaign.description || "No description yet."}
             </Text>
 
             <Text style={[styles.sectionLabel, styles.updatesHeading]}>
               Updates
             </Text>
-            <Update text="Report verified by moderator" />
-            <Update text="Cleanup campaign created" />
-            <Update text="65% of funding goal reached" />
+            {updates.map((update) => (
+              <Update key={update} text={update} />
+            ))}
           </View>
         </ScrollView>
 
@@ -192,6 +247,21 @@ function NavItem({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
   screen: { flex: 1, backgroundColor: "#FFFFFF" },
+  centered: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 24,
+  },
+  missingTitle: { color: "#17201A", fontSize: 15, fontWeight: "700" },
+  missingButton: {
+    marginTop: 8,
+    backgroundColor: "#1F7A3F",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  missingButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
   content: { paddingBottom: 20 },
   header: {
     height: 48,

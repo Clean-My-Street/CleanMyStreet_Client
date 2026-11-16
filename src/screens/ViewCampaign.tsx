@@ -8,8 +8,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { router } from "expo-router";
-import { JSX, useEffect, useState } from "react";
+import { JSX, useState } from "react";
 import {
+	ActivityIndicator,
 	Alert,
 	Image,
 	Keyboard,
@@ -22,16 +23,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
+import { useCampaign } from "../hooks/useCampaign";
 import {
 	createCampaignContribution,
-	FEATURED_CAMPAIGN_ID,
 	getApiErrorMessage,
 } from "../services/api";
 import {
-	type CampaignFunding,
-	subscribeCampaignFunding,
+	campaignStatusLabel,
+	fundedPercent as fundedPercentOf,
 } from "../services/campaignService";
-import { shareFeaturedCampaign } from "../services/shareService";
+import { shareCampaign } from "../services/shareService";
 
 const MAX_PLEDGE_AMOUNT = 50000;
 
@@ -42,25 +43,13 @@ function formatRand(amount: number): string {
 export default function ViewCampaign(): JSX.Element {
 	const [contributionAmount, setContributionAmount] = useState("100");
 	const [isContributing, setIsContributing] = useState(false);
-	const [funding, setFunding] = useState<CampaignFunding | null>(null);
-
-	useEffect(
-		() =>
-			subscribeCampaignFunding(FEATURED_CAMPAIGN_ID, setFunding, (error) => {
-				console.error("Could not load campaign funding.", error);
-			}),
-		[],
-	);
-
-	const fundedPercent =
-		funding && funding.goalAmount > 0
-			? Math.min(
-					100,
-					Math.round((funding.pledgedAmount / funding.goalAmount) * 100),
-				)
-			: 0;
+	const { campaignId, campaign, isLoading, error } = useCampaign();
+	const funding = campaign;
+	const fundedPercent = campaign ? fundedPercentOf(campaign) : 0;
+	const isOpenForPledges = campaign?.status === "funding";
 
 	const submitContribution = async () => {
+	  if (!isOpenForPledges) return;
 	  const amount = Number(contributionAmount);
 	  if (
 	    !Number.isSafeInteger(amount) ||
@@ -78,7 +67,7 @@ export default function ViewCampaign(): JSX.Element {
 	  Keyboard.dismiss();
 	  setIsContributing(true);
 	  try {
-	    await createCampaignContribution(FEATURED_CAMPAIGN_ID, amount);
+	    await createCampaignContribution(campaignId, amount);
 	    Alert.alert("Pledge recorded", `Your R${amount} pledge has been saved.`);
 	  } catch (error) {
 	    Alert.alert(
@@ -89,6 +78,34 @@ export default function ViewCampaign(): JSX.Element {
 	    setIsContributing(false);
 	  }
 	};
+
+	if (!campaign) {
+	  return (
+	    <SafeAreaView style={styles.safeArea}>
+	      <View style={[styles.screen, styles.centered]}>
+	        {isLoading ? (
+	          <ActivityIndicator color="#1F7A3F" />
+	        ) : (
+	          <>
+	            <Text style={styles.campaignTitle}>
+	              {error ? "Could not load campaign" : "Campaign not found"}
+	            </Text>
+	            <Text style={styles.description}>
+	              {error ?? "This campaign may have been removed."}
+	            </Text>
+	            <Pressable
+	              style={styles.contributeButton}
+	              onPress={() => router.back()}
+	              accessibilityRole="button"
+	            >
+	              <Text style={styles.contributeText}>Go back</Text>
+	            </Pressable>
+	          </>
+	        )}
+	      </View>
+	    </SafeAreaView>
+	  );
+	}
 
 	return (
     <SafeAreaView style={styles.safeArea}>
@@ -110,14 +127,19 @@ export default function ViewCampaign(): JSX.Element {
                 style={styles.logo}
               />
             </View>
-            <Text style={styles.headerTitle}>Musgrave Rd Cleanup Campaign</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {campaign.title} Campaign
+            </Text>
           </View>
 
           <View style={styles.photoPlaceholder}>
-            <Image
-              source={require("../../assets/images/dumpingsite.jpeg")}
-              style={styles.dumpingSiteImage}
-            />
+            {campaign.imageUrl && (
+              <Image
+                source={{ uri: campaign.imageUrl }}
+                style={styles.dumpingSiteImage}
+                accessibilityLabel={`Photo for ${campaign.title}`}
+              />
+            )}
           </View>
 
           <View style={styles.fundingPanel}>
@@ -167,21 +189,32 @@ export default function ViewCampaign(): JSX.Element {
               accessibilityLabel="Contribution amount in ZAR"
             />
             <Pressable
-              style={styles.contributeButton}
+              style={[
+                styles.contributeButton,
+                !isOpenForPledges && styles.contributeButtonDisabled,
+              ]}
               onPress={submitContribution}
-              disabled={isContributing}
+              disabled={isContributing || !isOpenForPledges}
               accessibilityRole="button"
             >
               <Text style={styles.contributeText}>
-                {isContributing ? "Submitting..." : "Contribute"}
+                {!isOpenForPledges
+                  ? campaignStatusLabel(campaign.status)
+                  : isContributing
+                    ? "Submitting..."
+                    : "Contribute"}
               </Text>
             </Pressable>
             <Pressable
               style={styles.lightAction}
               onPress={() =>
                 Alert.alert(
-                  "Funding still open",
-                  "You can book a cleaning team once this campaign reaches its R10,000 goal.",
+                  isOpenForPledges ? "Funding still open" : "Funding closed",
+                  isOpenForPledges
+                    ? `You can book a cleaning team once this campaign reaches its ${formatRand(
+                        campaign.goalAmount,
+                      )} goal.`
+                    : "This campaign is no longer accepting pledges.",
                 )
               }
               accessibilityRole="button"
@@ -192,7 +225,7 @@ export default function ViewCampaign(): JSX.Element {
             </Pressable>
             <Pressable
               style={styles.lightAction}
-              onPress={shareFeaturedCampaign}
+              onPress={() => void shareCampaign(campaign)}
               accessibilityRole="button"
             >
               <FontAwesomeIcon icon={faShareNodes} size={13} color="#17201A" />
@@ -201,16 +234,21 @@ export default function ViewCampaign(): JSX.Element {
           </View>
 
           <View style={styles.detailPanel}>
-            <Text style={styles.campaignTitle}>Musgrave Rd Cleanup</Text>
+            <Text style={styles.campaignTitle}>{campaign.title}</Text>
+            {campaign.location && (
+              <Text style={styles.description}>{campaign.location}</Text>
+            )}
             <Text style={styles.description}>
-              Help us clear a large illegal dumping site near the Botanic
-              Gardens entrance. Volunteers will remove litter, sort recyclable
-              waste, and restore the pavement edge for nearby residents.
+              {campaign.description || "No description yet."}
             </Text>
-            <Text style={styles.sectionLabel}>Recent Contributors</Text>
-            <Contributor name="Sipho N." amount="R250 - 3 hours ago" />
-            <Contributor name="Amina K." amount="R100 - yesterday" />
-            <Contributor name="Thando M." amount="R50 - yesterday" />
+            <Text style={styles.sectionLabel}>Contributors</Text>
+            {/* Individual pledges are private, so only the totals are shown. */}
+            <Contributor
+              name={`${campaign.pledgeCount} ${
+                campaign.pledgeCount === 1 ? "neighbour has" : "neighbours have"
+              } pledged`}
+              amount={`${formatRand(campaign.pledgedAmount)} in total`}
+            />
           </View>
         </ScrollView>
 
@@ -270,6 +308,13 @@ function Contributor({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
   screen: { flex: 1, backgroundColor: "#FFFFFF" },
+  centered: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 24,
+  },
+  contributeButtonDisabled: { opacity: 0.6 },
   content: { paddingBottom: 24 },
   header: {
     height: 48,

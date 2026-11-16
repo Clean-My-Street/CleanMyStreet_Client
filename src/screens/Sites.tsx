@@ -6,8 +6,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
-import { JSX, useState } from "react";
+import { JSX, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -17,65 +18,83 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
+import { useDeviceLocation } from "../hooks/useDeviceLocation";
 import { useSavedItems } from "../hooks/useSavedItems";
+import {
+  siteTitle,
+  subscribeSites,
+  type Site,
+  type SiteStatus,
+} from "../services/reportService";
+import { distanceKm, formatDistance } from "../utils/distance";
+import { formatRelativeTime } from "../utils/formatRelativeTime";
 
 type ViewMode = "Map" | "List";
 
-type Status = "Reported" | "Funding" | "Scheduled" | "Cleaned";
+type Status = SiteStatus;
 
-type Site = {
-  id: string;
-  name: string;
-  distance: string;
-  status: Status;
-};
-
-const sites: Site[] = [
-  {
-    id: "musgrave-road",
-    name: "Musgrave Road",
-    distance: "0.8 km from you",
-    status: "Funding",
-  },
-  {
-    id: "botanic-gardens",
-    name: "Botanic Gardens",
-    distance: "1.2 km from you",
-    status: "Scheduled",
-  },
-  {
-    id: "umbilo-road",
-    name: "Umbilo Road",
-    distance: "2.1 km from you",
-    status: "Reported",
-  },
-  {
-    id: "glenwood-park",
-    name: "Glenwood Park",
-    distance: "2.8 km from you",
-    status: "Cleaned",
-  },
-  {
-    id: "berea-road",
-    name: "Berea Road",
-    distance: "3.4 km from you",
-    status: "Funding",
-  },
-];
+type SiteWithDistance = Site & { distanceKm: number | null };
 
 const filters: Status[] = ["Reported", "Funding", "Scheduled", "Cleaned"];
 
 export default function Sites(): JSX.Element {
   const router = useRouter();
   const savedItemsState = useSavedItems();
+  const deviceLocation = useDeviceLocation();
 
   const [viewMode, setViewMode] = useState<ViewMode>("Map");
   const [activeFilter, setActiveFilter] = useState<Status | "All">("All");
+  const [sites, setSites] = useState<Site[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    setIsLoading(true);
+    setError(null);
+    return subscribeSites(
+      (nextSites) => {
+        setSites(nextSites);
+        setIsLoading(false);
+      },
+      (loadError) => {
+        setError(loadError.message);
+        setIsLoading(false);
+      },
+    );
+  }, [retryCount]);
+
+  // Nearest first when the device location is known, otherwise newest first.
+  const sitesWithDistance = useMemo<SiteWithDistance[]>(() => {
+    const location = deviceLocation.location;
+    const withDistance = sites.map((site) => ({
+      ...site,
+      distanceKm: location ? distanceKm(location, site) : null,
+    }));
+    if (location) {
+      withDistance.sort(
+        (first, second) => (first.distanceKm ?? 0) - (second.distanceKm ?? 0),
+      );
+    }
+    return withDistance;
+  }, [deviceLocation.location, sites]);
 
   const filteredSites =
     activeFilter === "All"
-      ? sites
-      : sites.filter((site) => site.status === activeFilter);
+      ? sitesWithDistance
+      : sitesWithDistance.filter((site) => site.siteStatus === activeFilter);
+
+  const describeDistance = (site: SiteWithDistance) => {
+    if (site.distanceKm !== null) {
+      return `${formatDistance(site.distanceKm)} from you`;
+    }
+    const reported = formatRelativeTime(site.createdAt);
+    return `Reported ${
+      reported === "Just now" || reported === "Yesterday"
+        ? reported.toLowerCase()
+        : reported
+    }`;
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -93,6 +112,14 @@ export default function Sites(): JSX.Element {
           </View>
 
           <Text style={styles.headerTitle}>Map & Nearby Sites</Text>
+          <Pressable
+            style={styles.reportSiteButton}
+            onPress={() => router.push("/reportdumping")}
+            accessibilityRole="button"
+            accessibilityLabel="Report a new dumping site"
+          >
+            <Text style={styles.reportSiteButtonText}>+ Report a site</Text>
+          </Pressable>
         </View>
 
         <ScrollView
@@ -194,45 +221,110 @@ export default function Sites(): JSX.Element {
           {/* NEARBY SITES PANEL */}
           <View style={styles.nearbyPanel}>
             <Text style={styles.nearbyTitle}>
-              {filteredSites.length} Sites Nearby
+              {isLoading
+                ? "Loading sites..."
+                : `${filteredSites.length} ${
+                    filteredSites.length === 1 ? "Site" : "Sites"
+                  }${deviceLocation.location ? " Nearby" : ""}`}
             </Text>
 
-            {viewMode === "Map" ? (
-              <Text style={styles.panelSubtitle}>
-                View nearby sites on the map or browse the list below
-              </Text>
-            ) : (
-              <Text style={styles.panelSubtitle}>
-                Browse all nearby dumping sites
-              </Text>
+            <Text style={styles.panelSubtitle}>
+              {deviceLocation.status === "denied"
+                ? "Allow location access to sort sites by distance. Showing newest reports first."
+                : viewMode === "Map"
+                  ? "View nearby sites on the map or browse the list below"
+                  : "Browse all reported dumping sites"}
+            </Text>
+
+            {isLoading && <ActivityIndicator color="#FFFFFF" />}
+
+            {!isLoading && error && (
+              <View style={styles.panelMessage}>
+                <Text style={styles.panelMessageTitle}>
+                  Could not load sites
+                </Text>
+                <Text style={styles.panelMessageText}>{error}</Text>
+                <Pressable
+                  style={styles.panelButton}
+                  onPress={() => setRetryCount((count) => count + 1)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.panelButtonText}>Try again</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {!isLoading && !error && filteredSites.length === 0 && (
+              <View style={styles.panelMessage}>
+                <Text style={styles.panelMessageTitle}>
+                  {activeFilter === "All"
+                    ? "No sites reported yet"
+                    : `No ${activeFilter.toLowerCase()} sites`}
+                </Text>
+                <Text style={styles.panelMessageText}>
+                  Seen illegal dumping? Report it and it will appear here.
+                </Text>
+                <Pressable
+                  style={styles.panelButton}
+                  onPress={() => router.push("/reportdumping")}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.panelButtonText}>Report a site</Text>
+                </Pressable>
+              </View>
             )}
 
             {/* SITE LIST */}
             <View style={styles.siteList}>
               {filteredSites.map((site) => (
                 <View key={site.id} style={styles.siteCard}>
-                  {/* IMAGE PLACEHOLDER */}
                   <View style={styles.siteImage}>
-                    <Text style={styles.imageText}>Image</Text>
+                    {site.imageUrl ? (
+                      <Image
+                        source={{ uri: site.imageUrl }}
+                        style={styles.siteImagePhoto}
+                        accessibilityLabel={`Photo of ${siteTitle(site)}`}
+                      />
+                    ) : (
+                      <Text style={styles.imageText}>No photo</Text>
+                    )}
                   </View>
 
                   {/* SITE INFORMATION */}
                   <View style={styles.siteInfo}>
-                    <Text style={styles.siteName}>{site.name}</Text>
+                    <Text style={styles.siteName} numberOfLines={1}>
+                      {siteTitle(site)}
+                    </Text>
 
-                    <Text style={styles.distance}>{site.distance}</Text>
+                    <Text style={styles.distance}>
+                      {describeDistance(site)} · {site.wasteType}
+                    </Text>
 
-                    <View
-                      style={[styles.statusBadge, getStatusStyle(site.status)]}
-                    >
-                      <Text
+                    <View style={styles.badgeRow}>
+                      <View
                         style={[
-                          styles.statusText,
-                          getStatusTextStyle(site.status),
+                          styles.statusBadge,
+                          getStatusStyle(site.siteStatus),
                         ]}
                       >
-                        {site.status}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.statusText,
+                            getStatusTextStyle(site.siteStatus),
+                          ]}
+                        >
+                          {site.isPendingReview
+                            ? "Awaiting review"
+                            : site.siteStatus}
+                        </Text>
+                      </View>
+                      {site.isOwn && (
+                        <View style={[styles.statusBadge, styles.ownBadge]}>
+                          <Text style={[styles.statusText, styles.ownBadgeText]}>
+                            Your report
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                   <Pressable
@@ -241,8 +333,12 @@ export default function Sites(): JSX.Element {
                       void savedItemsState.toggleSavedItem({
                         itemId: site.id,
                         type: "site",
-                        title: site.name,
-                        detail: `${site.distance} · ${site.status}`,
+                        title: siteTitle(site),
+                        detail: `${site.wasteType} · ${
+                          site.isPendingReview
+                            ? "Awaiting review"
+                            : site.siteStatus
+                        }`,
                       })
                     }
                     disabled={
@@ -260,7 +356,7 @@ export default function Sites(): JSX.Element {
                       })
                         ? "Remove"
                         : "Save"
-                    } ${site.name}`}
+                    } ${siteTitle(site)}`}
                   >
                     <FontAwesomeIcon
                       icon={faBookmark}
@@ -438,10 +534,78 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
+    flex: 1,
     color: "#17201A",
     fontSize: 14,
     fontWeight: "700",
     marginLeft: 9,
+  },
+
+  reportSiteButton: {
+    backgroundColor: "#1F7A3F",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+
+  reportSiteButtonText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  panelMessage: {
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderRadius: 12,
+    padding: 14,
+    alignItems: "center",
+    gap: 6,
+  },
+
+  panelMessageTitle: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  panelMessageText: {
+    color: "#D9F1E1",
+    fontSize: 10,
+    textAlign: "center",
+  },
+
+  panelButton: {
+    marginTop: 4,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+
+  panelButtonText: {
+    color: "#1F7A3F",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+
+  siteImagePhoto: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 9,
+  },
+
+  badgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+
+  ownBadge: {
+    backgroundColor: "#FFFFFF",
+  },
+
+  ownBadgeText: {
+    color: "#1F7A3F",
   },
 
   /* MAP / LIST */

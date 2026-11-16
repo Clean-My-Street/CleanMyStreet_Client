@@ -37,6 +37,8 @@ export default function Location(): JSX.Element {
   const mapRef = useRef<LocationMapHandle | null>(null);
   const hasManuallySelectedLocation = useRef(false);
   const [wasteType, setWasteType] = useState<WasteType>("Illegal Dumping");
+  const [siteName, setSiteName] = useState("");
+  const hasEditedSiteName = useRef(false);
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [coordinates, setCoordinates] = useState<{
@@ -89,6 +91,30 @@ export default function Location(): JSX.Element {
     void getCurrentLocation();
   }, [getCurrentLocation]);
 
+  // Suggest a site name (street or area) for the chosen location until the
+  // user types their own. Waits briefly so dragging the pin doesn't send a
+  // geocoding request for every position.
+  useEffect(() => {
+    if (!coordinates || hasEditedSiteName.current) return;
+    let isActive = true;
+    const timer = setTimeout(() => {
+      ExpoLocation.reverseGeocodeAsync(coordinates)
+        .then(([place]) => {
+          if (!isActive || hasEditedSiteName.current || !place) return;
+          const suggestion =
+            place.street ?? place.name ?? place.district ?? place.city ?? "";
+          setSiteName(suggestion.slice(0, 100));
+        })
+        .catch((error) => {
+          console.warn("Could not suggest a site name.", error);
+        });
+    }, 600);
+    return () => {
+      isActive = false;
+      clearTimeout(timer);
+    };
+  }, [coordinates]);
+
   const selectMapLocation = (coordinate: LocationCoordinate) => {
     hasManuallySelectedLocation.current = true;
     setCoordinates(coordinate);
@@ -119,7 +145,8 @@ export default function Location(): JSX.Element {
 
     setIsSubmitting(true);
     try {
-      await submitDumpingReport({
+      const report = await submitDumpingReport({
+        siteName: siteName.trim(),
         description: reportDescription,
         wasteType,
         latitude: coordinates.latitude,
@@ -127,9 +154,19 @@ export default function Location(): JSX.Element {
         photoUri,
       });
       Alert.alert(
-        "Report submitted",
-        "Your dumping-site report has been saved for review.",
-        [{ text: "OK", onPress: () => router.replace("/sites") }],
+        "Site reported",
+        "Your site is listed on Sites, and a cleanup campaign for it is now open for pledges on Home.",
+        [
+          { text: "See sites", onPress: () => router.replace("/sites") },
+          {
+            text: "View campaign",
+            onPress: () =>
+              router.replace({
+                pathname: "/previewcampaign",
+                params: { campaignId: report.campaignId },
+              }),
+          },
+        ],
       );
     } catch (error) {
       Alert.alert(
@@ -220,6 +257,25 @@ export default function Location(): JSX.Element {
             </Pressable>
           </View>
 
+          {/* SITE NAME */}
+          <Text style={styles.sectionTitle}>Site name</Text>
+
+          <TextInput
+            value={siteName}
+            onChangeText={(text) => {
+              hasEditedSiteName.current = true;
+              setSiteName(text);
+            }}
+            style={styles.siteNameInput}
+            placeholder="Street or landmark, e.g. Musgrave Road"
+            placeholderTextColor="#7A817C"
+            maxLength={100}
+            accessibilityLabel="Site name"
+          />
+          <Text style={styles.fieldHint}>
+            Shown on the Sites list. Suggested from the map location.
+          </Text>
+
           {/* DESCRIPTION */}
           <Text style={styles.sectionTitle}>Description</Text>
 
@@ -303,8 +359,8 @@ export default function Location(): JSX.Element {
 
           {/* NOTIFICATION */}
           <Text style={styles.notificationText}>
-            You'll be notified as your report is reviewed and cleanup campaign
-            created
+            Your site appears on Sites, and a cleanup campaign for it opens on
+            Home so neighbours can pledge
           </Text>
         </ScrollView>
 
@@ -480,6 +536,23 @@ const styles = StyleSheet.create({
   },
 
   /* DESCRIPTION */
+  siteNameInput: {
+    width: "100%",
+    height: 46,
+    backgroundColor: "#E5E5E5",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    color: "#17201A",
+    fontSize: 12,
+  },
+
+  fieldHint: {
+    color: "#68706A",
+    fontSize: 10,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+
   descriptionBox: {
     width: "100%",
     height: 170,

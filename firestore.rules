@@ -68,6 +68,17 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // The user's own pledges and liked posts. Written only by the API.
+      match /contributions/{contributionId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      match /likedPosts/{postId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
       match /savedItems/{savedItemId} {
         allow read, delete: if request.auth != null
           && request.auth.uid == userId;
@@ -129,6 +140,13 @@ service cloud.firestore {
     match /communityPosts/{postId} {
       allow read: if request.auth != null;
       allow write: if false;
+
+      // Comments are public to signed-in users. Who liked a post is not:
+      // likes/{userId} has no rule, so only the API can read it.
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
     }
 
     match /campaigns/{campaignId} {

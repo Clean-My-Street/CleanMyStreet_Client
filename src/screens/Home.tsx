@@ -1,47 +1,74 @@
 import { faBell, faHome, faNewspaper, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
 import { useRouter } from 'expo-router';
-import { JSX } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { JSX, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProfileNavButton } from '../components/ProfileNavButton';
-import { shareFeaturedCampaign } from '../services/shareService';
+import { useDeviceLocation } from '../hooks/useDeviceLocation';
+import {
+  campaignStatusLabel,
+  fundedPercent,
+  subscribeCampaigns,
+  type Campaign,
+} from '../services/campaignService';
+import { siteTitle, subscribeSites, type Site } from '../services/reportService';
+import { shareCampaign } from '../services/shareService';
+import { distanceKm, formatDistance } from '../utils/distance';
+import { formatRelativeTime } from '../utils/formatRelativeTime';
 
-const campaigns = [
-  {
-    id: 'musgrave-road-cleanup',
-    title: 'Musgrave Rd Cleanup',
-    description: 'Help remove household waste near the Botanic Gardens entrance.',
-    image: require('../../assets/images/dumpingsite.jpeg'),
-    raised: 6500,
-    goal: 10000,
-    status: 'Funding open',
-    isFeatured: true,
-  },
-  {
-    id: 'riverbank-restoration-example',
-    title: 'Riverbank Restoration',
-    description: 'A sample campaign to clear litter from a local riverbank.',
-    image: require('../../assets/images/17.jpeg'),
-    raised: 3200,
-    goal: 8000,
-    status: 'Funding open',
-    isFeatured: false,
-  },
-  {
-    id: 'glenwood-park-cleanup-example',
-    title: 'Glenwood Park Cleanup',
-    description: 'A sample update showing a completed park clean-up.',
-    image: require('../../assets/images/20.jpeg'),
-    raised: 5000,
-    goal: 5000,
-    status: 'Cleaned',
-    isFeatured: false,
-  },
-];
+const NEARBY_SITE_COUNT = 3;
 
 export default function Home(): JSX.Element {
   const router = useRouter();
+  const deviceLocation = useDeviceLocation();
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [areCampaignsLoading, setAreCampaignsLoading] = useState(true);
+  const [campaignsError, setCampaignsError] = useState<string | null>(null);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [areSitesLoading, setAreSitesLoading] = useState(true);
+  const [sitesError, setSitesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribeCampaigns = subscribeCampaigns(
+      (nextCampaigns) => {
+        setCampaigns(nextCampaigns);
+        setAreCampaignsLoading(false);
+      },
+      (error) => {
+        setCampaignsError(error.message);
+        setAreCampaignsLoading(false);
+      },
+    );
+    const unsubscribeSites = subscribeSites(
+      (nextSites) => {
+        setSites(nextSites);
+        setAreSitesLoading(false);
+      },
+      (error) => {
+        setSitesError(error.message);
+        setAreSitesLoading(false);
+      },
+    );
+    return () => {
+      unsubscribeCampaigns();
+      unsubscribeSites();
+    };
+  }, []);
+
+  // The closest sites when the device location is known, else the newest.
+  const nearbySites = useMemo(() => {
+    const location = deviceLocation.location;
+    const withDistance = sites.map((site) => ({
+      site,
+      distance: location ? distanceKm(location, site) : null,
+    }));
+    if (location) {
+      withDistance.sort((first, second) => (first.distance ?? 0) - (second.distance ?? 0));
+    }
+    return withDistance.slice(0, NEARBY_SITE_COUNT);
+  }, [deviceLocation.location, sites]);
+  const nearestPhoto = nearbySites.find(({ site }) => site.imageUrl)?.site.imageUrl ?? null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -79,78 +106,133 @@ export default function Home(): JSX.Element {
             </Text>
           </View>
 
-          <Text style={styles.sectionTitle}>Nearby Dumping Sites</Text>
+          <Pressable
+            style={styles.sectionHeading}
+            onPress={() => router.push("/sites")}
+            accessibilityRole="button"
+            accessibilityLabel="See all dumping sites"
+          >
+            <Text style={styles.sectionTitle}>
+              {deviceLocation.location ? 'Nearby Dumping Sites' : 'Recently Reported Sites'}
+            </Text>
+            <Text style={styles.seeAllText}>See all</Text>
+          </Pressable>
           <View style={styles.sectionCard}>
-            <View style={styles.artworkPlaceholder}>
-              <Image
-                source={require("../../assets/images/dumpingsite.jpeg")}
-                style={styles.dumpingSiteImage}
+            {nearestPhoto && (
+              <View style={styles.artworkPlaceholder}>
+                <Image
+                  source={{ uri: nearestPhoto }}
+                  style={styles.dumpingSiteImage}
+                  accessibilityLabel="Photo of a nearby dumping site"
+                />
+              </View>
+            )}
+            {areSitesLoading && <ActivityIndicator color="#36B86B" />}
+            {!areSitesLoading && sitesError && (
+              <Text style={styles.emptyText}>Could not load sites: {sitesError}</Text>
+            )}
+            {!areSitesLoading && !sitesError && nearbySites.length === 0 && (
+              <Text style={styles.emptyText}>
+                No dumping sites reported yet. Tap + to report one.
+              </Text>
+            )}
+            {nearbySites.map(({ site, distance }) => (
+              <SiteRow
+                key={site.id}
+                name={siteTitle(site)}
+                distance={
+                  distance === null
+                    ? formatRelativeTime(site.createdAt)
+                    : formatDistance(distance)
+                }
               />
-            </View>
-            <SiteRow name="Musgrave Rd" distance="0.8 km" />
-            <SiteRow name="Sydenham Rd" distance="1.4 km" />
+            ))}
           </View>
 
           <Text style={styles.sectionTitle}>Active Campaigns</Text>
-          {campaigns.map((campaign, index) => (
+          {areCampaignsLoading && (
+            <View style={styles.sectionCard}>
+              <ActivityIndicator color="#36B86B" />
+            </View>
+          )}
+          {!areCampaignsLoading && campaignsError && (
+            <View style={styles.sectionCard}>
+              <Text style={styles.emptyText}>
+                Could not load campaigns: {campaignsError}
+              </Text>
+            </View>
+          )}
+          {!areCampaignsLoading && !campaignsError && campaigns.length === 0 && (
+            <View style={styles.sectionCard}>
+              <Text style={styles.emptyText}>
+                No campaigns yet. Campaigns are created for verified dumping sites.
+              </Text>
+            </View>
+          )}
+          {campaigns.map((campaign, index) => {
+            const percent = fundedPercent(campaign);
+            const isOpen = campaign.status === 'funding';
+            return (
             <View key={campaign.id}>
               <View style={styles.sectionCard}>
-                <Image source={campaign.image} style={styles.campaignImage} />
+                {campaign.imageUrl && (
+                  <Image
+                    source={{ uri: campaign.imageUrl }}
+                    style={styles.campaignImage}
+                    accessibilityLabel={`Photo for ${campaign.title}`}
+                  />
+                )}
                 <View style={styles.campaignHeading}>
                   <Text style={styles.campaignTitle}>{campaign.title}</Text>
                   <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>{campaign.status}</Text>
+                    <Text style={styles.statusText}>
+                      {campaignStatusLabel(campaign.status)}
+                    </Text>
                   </View>
                 </View>
-                <Text style={styles.campaignDescription} numberOfLines={2}>
-                  {campaign.description}
-                </Text>
+                {campaign.description ? (
+                  <Text style={styles.campaignDescription} numberOfLines={2}>
+                    {campaign.description}
+                  </Text>
+                ) : null}
                 <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: `${Math.min(
-                          100,
-                          Math.round((campaign.raised / campaign.goal) * 100),
-                        )}%`,
-                      },
-                    ]}
-                  />
+                  <View style={[styles.progressFill, { width: `${percent}%` }]} />
                 </View>
                 <View style={styles.campaignMeta}>
                   <Text style={styles.metaText}>
-                    R{campaign.raised.toLocaleString('en-ZA')} of R
-                    {campaign.goal.toLocaleString('en-ZA')}
+                    R{campaign.pledgedAmount.toLocaleString('en-ZA')} of R
+                    {campaign.goalAmount.toLocaleString('en-ZA')}
                   </Text>
-                  <Text style={styles.metaText}>
-                    {Math.round((campaign.raised / campaign.goal) * 100)}%
-                  </Text>
+                  <Text style={styles.metaText}>{percent}%</Text>
                 </View>
-                {campaign.isFeatured ? (
-                  <View style={styles.campaignActions}>
-                    <Pressable
-                      style={[styles.campaignButton, styles.primaryButton]}
-                      onPress={() => router.push("/previewcampaign")}
-                    >
-                      <Text style={styles.primaryButtonText}>Contribute</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.campaignButton, styles.shareButton]}
-                      onPress={shareFeaturedCampaign}
-                    >
-                      <Text style={styles.secondaryButtonText}>Share</Text>
-                    </Pressable>
-                  </View>
-                ) : (
-                  <Text style={styles.sampleCampaignNote}>
-                    Example campaign · preview only
-                  </Text>
-                )}
+                <View style={styles.campaignActions}>
+                  <Pressable
+                    style={[styles.campaignButton, styles.primaryButton]}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/previewcampaign',
+                        params: { campaignId: campaign.id },
+                      })
+                    }
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {isOpen ? 'Contribute' : 'View campaign'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.campaignButton, styles.shareButton]}
+                    onPress={() => void shareCampaign(campaign)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.secondaryButtonText}>Share</Text>
+                  </Pressable>
+                </View>
               </View>
               {index < 2 && <Advertisement />}
             </View>
-          ))}
+            );
+          })}
         </ScrollView>
 
         <View style={styles.bottomNav}>
@@ -240,6 +322,9 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   secondaryButtonText: { color: '#17201A', fontSize: 11, fontWeight: '600' },
   sectionTitle: { color: '#17201A', fontSize: 13, marginBottom: 8 },
+  sectionHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  seeAllText: { color: '#267B49', fontSize: 11, fontWeight: '700' },
+  emptyText: { color: '#68706A', fontSize: 11, textAlign: 'center', paddingVertical: 8 },
   sectionCard: { backgroundColor: '#F1F1F1', borderRadius: 9, padding: 10, marginBottom: 18 },
   advertisementCard: { backgroundColor: '#F1F1F1', borderRadius: 9, padding: 12, marginBottom: 18, minHeight: 104, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   advertisementBrand: { flex: 1, minWidth: 0 },
@@ -260,7 +345,7 @@ const styles = StyleSheet.create({
   statusText: { color: '#267B49', fontSize: 9, fontWeight: '700' },
   campaignDescription: { color: '#4D554F', fontSize: 10, lineHeight: 14, marginBottom: 9 },
   progressTrack: { height: 5, borderRadius: 3, backgroundColor: '#D5D8D5', overflow: 'hidden' },
-  progressFill: { width: '65%', height: '100%', backgroundColor: '#36B86B', borderRadius: 3 },
+  progressFill: { height: '100%', backgroundColor: '#36B86B', borderRadius: 3 },
   campaignMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
   metaText: { color: '#17201A', fontSize: 10 },
   campaignActions: { flexDirection: 'row', gap: 8, marginTop: 8 },

@@ -31,6 +31,9 @@ const HOUR = 60 * 60 * 1000;
 const MAX_REPORT_IMAGE_BYTES = 10 * 1024 * 1024;
 // Pledges are promises to pay, not payments; this cap stops absurd totals.
 const MAX_PLEDGE_AMOUNT = 50_000;
+// Funding goal for the campaign created with each new report. Moderators can
+// change it on the campaign document.
+const DEFAULT_CAMPAIGN_GOAL = 5_000;
 
 app.use(cors({ origin: true, methods: ["POST", "OPTIONS"] }));
 app.use(express.json({ limit: "1mb" }));
@@ -175,6 +178,44 @@ function requireString(
   return value.trim();
 }
 
+function optionalString(
+  value: unknown,
+  field: string,
+  maxLength: number,
+): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string" || value.trim().length > maxLength) {
+    throw new HttpError(
+      400,
+      `${field} must be a string of at most ${maxLength} characters.`,
+    );
+  }
+  return value.trim() || undefined;
+}
+
+// Firestore document IDs from the URL: no slashes and not "." or "..".
+function requireDocumentId(value: unknown, field: string): string {
+  if (
+    typeof value !== "string" ||
+    !value ||
+    value.length > 128 ||
+    value.includes("/") ||
+    value === "." ||
+    value === ".."
+  ) {
+    throw new HttpError(400, `${field} is invalid.`);
+  }
+  return value;
+}
+
+function authorNameOf(user: DecodedIdToken): string {
+  return (
+    (typeof user.name === "string" && user.name.trim()) ||
+    user.email?.split("@")[0] ||
+    "Community member"
+  );
+}
+
 function optionalCoordinate(
   value: unknown,
   field: string,
@@ -256,6 +297,8 @@ app.post(
     if (!["Household", "Construction", "Illegal Dumping"].includes(wasteType)) {
       throw new HttpError(400, "wasteType is invalid.");
     }
+    // A short public name for the site, such as a street or landmark.
+    const siteName = optionalString(body.siteName, "siteName", 100);
 
     // Check the photo the user actually uploaded instead of trusting a URL
     // from the request.
@@ -292,6 +335,7 @@ app.post(
       imageUrl: downloadUrl(imagePath, downloadToken),
       imagePath,
       wasteType,
+      ...(siteName ? { siteName } : {}),
       status: "pending_verification",
       createdAt,
       updatedAt: createdAt,
@@ -299,7 +343,26 @@ app.post(
 
     try {
       const batch = db.batch();
-      batch.create(reference, report);
+      batch.create(reference, { ...report, campaignId: reference.id });
+      // Every reported site gets a cleanup campaign that is open for pledges
+      // straight away. It shares the report's ID and public photo.
+      batch.create(db.collection("campaigns").doc(reference.id), {
+        title: siteName ? `${siteName} Cleanup` : `${wasteType} Site Cleanup`,
+        description,
+        location: siteName ?? null,
+        latitude,
+        longitude,
+        imageUrl: report.imageUrl,
+        siteId: reference.id,
+        wasteType,
+        goalAmount: DEFAULT_CAMPAIGN_GOAL,
+        pledgedAmount: 0,
+        pledgeCount: 0,
+        currency: "ZAR",
+        status: "funding",
+        createdAt,
+        updatedAt: createdAt,
+      });
       // Who reported what is private: only the server and the reporter can see it.
       batch.create(db.collection("reportOwners").doc(reference.id), {
         reportId: reference.id,
@@ -308,7 +371,12 @@ app.post(
       });
       batch.create(
         db.collection("users").doc(user.uid).collection("reports").doc(reference.id),
-        { reportId: reference.id, createdAt },
+        {
+          reportId: reference.id,
+          wasteType,
+          ...(siteName ? { siteName } : {}),
+          createdAt,
+        },
       );
       batch.create(
         notificationReference(user.uid),
@@ -332,6 +400,7 @@ app.post(
 
     response.status(201).json({
       id: reference.id,
+      campaignId: reference.id,
       ...report,
       createdAt: responseCreatedAt(createdAt),
     });
@@ -356,10 +425,7 @@ app.post(
       throw new HttpError(400, "category must be Cleanup, Tips, or Question.");
     }
 
-    const authorName =
-      (typeof user.name === "string" && user.name.trim()) ||
-      user.email?.split("@")[0] ||
-      "Community member";
+    const authorName = authorNameOf(user);
     const createdAt = Timestamp.now();
     const post = {
       body: text,
@@ -375,6 +441,99 @@ app.post(
     response.status(201).json({
       id: reference.id,
       ...post,
+      createdAt: responseCreatedAt(createdAt),
+    });
+  }),
+);
+
+// Likes and unlikes a post. Each like is stored once per user, under the post
+// and in the user's likedPosts list, and the post keeps the total.
+app.post(
+  "/community/posts/:postId/likes",
+  verifyAppCheck,
+  authenticate,
+  rateLimit("communityLikes", 120, HOUR),
+  asyncHandler(async (request, response) => {
+    const user = getAuthenticatedUser(request);
+    const postId = requireDocumentId(request.params.postId, "postId");
+    const postReference = db.collection("communityPosts").doc(postId);
+    const likeReference = postReference.collection("likes").doc(user.uid);
+    const userLikeReference = db
+      .collection("users")
+      .doc(user.uid)
+      .collection("likedPosts")
+      .doc(postId);
+
+    const result = await db.runTransaction(async (transaction) => {
+      const [post, like] = await Promise.all([
+        transaction.get(postReference),
+        transaction.get(likeReference),
+      ]);
+      if (!post.exists) {
+        throw new HttpError(404, "Post not found.");
+      }
+      const currentLikes = post.get("likes");
+      const likes = typeof currentLikes === "number" ? currentLikes : 0;
+
+      if (like.exists) {
+        transaction.delete(likeReference);
+        transaction.delete(userLikeReference);
+        transaction.update(postReference, {
+          likes: FieldValue.increment(-1),
+        });
+        return { liked: false, likes: Math.max(0, likes - 1) };
+      }
+
+      const createdAt = Timestamp.now();
+      transaction.create(likeReference, { userId: user.uid, createdAt });
+      transaction.create(userLikeReference, { postId, createdAt });
+      transaction.update(postReference, { likes: FieldValue.increment(1) });
+      return { liked: true, likes: likes + 1 };
+    });
+
+    response.status(200).json({ postId, ...result });
+  }),
+);
+
+app.post(
+  "/community/posts/:postId/comments",
+  verifyAppCheck,
+  authenticate,
+  rateLimit("communityComments", 60, HOUR),
+  asyncHandler(async (request, response) => {
+    const user = getAuthenticatedUser(request);
+    const postId = requireDocumentId(request.params.postId, "postId");
+    const body: unknown = request.body;
+    if (!isRecord(body)) {
+      throw new HttpError(400, "A JSON request body is required.");
+    }
+    const text = requireString(body.body, "body", 1000);
+
+    const postReference = db.collection("communityPosts").doc(postId);
+    const commentReference = postReference.collection("comments").doc();
+    const createdAt = Timestamp.now();
+    const comment = {
+      body: text,
+      authorId: user.uid,
+      authorName: authorNameOf(user),
+      createdAt,
+    };
+
+    await db.runTransaction(async (transaction) => {
+      const post = await transaction.get(postReference);
+      if (!post.exists) {
+        throw new HttpError(404, "Post not found.");
+      }
+      transaction.create(commentReference, comment);
+      transaction.update(postReference, {
+        commentCount: FieldValue.increment(1),
+      });
+    });
+
+    response.status(201).json({
+      id: commentReference.id,
+      postId,
+      ...comment,
       createdAt: responseCreatedAt(createdAt),
     });
   }),
@@ -440,6 +599,23 @@ app.post(
         updatedAt: createdAt,
       });
       const campaignTitle = campaign.get("title");
+      // The pledger's own copy, so My Activity can list their pledges.
+      transaction.create(
+        db
+          .collection("users")
+          .doc(user.uid)
+          .collection("contributions")
+          .doc(contributionReference.id),
+        {
+          campaignId,
+          campaignTitle:
+            typeof campaignTitle === "string" ? campaignTitle : "Campaign",
+          amount,
+          currency: "ZAR",
+          status: "pledged",
+          createdAt,
+        },
+      );
       transaction.create(
         notificationReference(user.uid),
         notificationData(

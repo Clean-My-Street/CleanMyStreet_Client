@@ -36,10 +36,15 @@ a different project or region. The default is
 | --- | --- | --- |
 | `POST /reports` | `{ "reportId": "...", "description": "...", "wasteType": "Illegal Dumping", "latitude": -29.86, "longitude": 31.01, "imageUrl": "https://...", "imagePath": "reports/{userId}/{reportId}.jpg" }` | `reports/{reportId}` |
 | `POST /community/posts` | `{ "body": "...", "category": "Cleanup" }` | `communityPosts/{postId}` |
+| `POST /community/posts/{postId}/likes` | none (toggles the user's like) | `communityPosts/{postId}/likes/{userId}`, `users/{userId}/likedPosts/{postId}` |
+| `POST /community/posts/{postId}/comments` | `{ "body": "..." }` | `communityPosts/{postId}/comments/{commentId}` |
 | `POST /campaigns/{campaignId}/contributions` | `{ "amount": 100 }` | `campaigns/{campaignId}/contributions/{contributionId}` |
 
 Report submission requires a description, supported waste type, GPS coordinates,
-and a photo URL/path. The app uploads report photos to
+and a photo URL/path; `siteName` is optional. Each new report also creates a
+campaign at `campaigns/{reportId}` with status `funding` and a R5,000 goal, so
+the site appears on Home ready for pledges. Pledges are also copied to
+`users/{userId}/contributions` for the My Activity screen. The app uploads report photos to
 `reports/{reporterId}/{reportId}.jpg` in Firebase Storage before creating the
 Firestore document. Firestore report documents include `description`,
 `wasteType`, `location` (`latitude` and `longitude`), `imageUrl`, `imagePath`,

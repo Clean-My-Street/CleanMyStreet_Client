@@ -32,7 +32,12 @@ import {
   enableCleanupReminders,
   requestNotificationPermission,
 } from "../services/localNotificationService";
+import {
+  subscribeUserActivity,
+  type UserActivity,
+} from "../services/activityService";
 import { auth } from "../services/firebase";
+import { formatRelativeTime } from "../utils/formatRelativeTime";
 import type { SavedItem } from "../services/savedItemsService";
 import {
   DEFAULT_USER_PREFERENCES,
@@ -165,7 +170,7 @@ export default function ProfileOptionPage({
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          {option === "activity" && <ActivityContent />}
+          {option === "activity" && <ActivityContent userId={userId} />}
           {option === "saved" && (
             <SavedContent
               items={savedItemsState.items}
@@ -211,38 +216,79 @@ export default function ProfileOptionPage({
   );
 }
 
-function ActivityContent(): JSX.Element {
+function ActivityContent({ userId }: { userId?: string }): JSX.Element {
+  const [activity, setActivity] = useState<UserActivity | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    if (!userId) {
+      setError("Sign in to see your activity.");
+      return;
+    }
+    setActivity(null);
+    setError(null);
+    return subscribeUserActivity(userId, setActivity, (loadError) =>
+      setError(loadError.message),
+    );
+  }, [retryCount, userId]);
+
   return (
     <>
       <IntroCard
         icon={faLeaf}
         title="Your community impact"
-        text="A record of the cleanups and campaigns you’ve taken part in."
+        text="A record of the sites you’ve reported, your pledges and your posts."
       />
       <View style={styles.statsRow}>
-        <StatCard value="8" label="Reports made" />
-        <StatCard value="5" label="Cleanups joined" />
-        <StatCard value="R750" label="Contributed" />
+        <StatCard
+          value={activity ? String(activity.reportCount) : "–"}
+          label="Sites reported"
+        />
+        <StatCard
+          value={
+            activity ? `R${activity.pledgeTotal.toLocaleString("en-ZA")}` : "–"
+          }
+          label="Pledged"
+        />
+        <StatCard
+          value={activity ? String(activity.postCount) : "–"}
+          label="Posts shared"
+        />
       </View>
       <Text style={styles.sectionTitle}>Recent activity</Text>
-      <ActivityRow
-        title="Reported illegal dumping"
-        detail="Musgrave Road · Report reviewed"
-        date="Today"
-        status="Reviewed"
-      />
-      <ActivityRow
-        title="Joined a community cleanup"
-        detail="Sydenham Road · Cleanup completed"
-        date="12 Aug"
-        status="Completed"
-      />
-      <ActivityRow
-        title="Contributed to a campaign"
-        detail="Musgrave Rd Cleanup · R250"
-        date="8 Aug"
-        status="Complete"
-      />
+      {!activity && !error && (
+        <Text style={styles.helperText}>Loading your activity...</Text>
+      )}
+      {error && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>Could not load your activity</Text>
+          <Text style={styles.emptyText}>{error}</Text>
+          {userId && (
+            <Pressable
+              onPress={() => setRetryCount((count) => count + 1)}
+              style={styles.retryButton}
+            >
+              <Text style={styles.outlineButtonText}>Try again</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+      {activity?.items.map((item) => (
+        <ActivityRow
+          key={item.id}
+          title={item.title}
+          detail={item.detail}
+          date={formatRelativeTime(item.date)}
+          status={item.status}
+        />
+      ))}
+      {activity && activity.items.length === 0 && (
+        <EmptyState
+          title="No activity yet"
+          text="Report a dumping site, pledge to a campaign or post in Community and it will show up here."
+        />
+      )}
     </>
   );
 }
