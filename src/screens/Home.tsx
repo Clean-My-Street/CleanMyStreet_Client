@@ -295,7 +295,7 @@ function Advertisement(): JSX.Element {
       </View>
       <View style={styles.advertisementLogo}>
         <Image
-          source={require('../../assets/images/cleanmystreet.png')}
+          source={require('../../assets/images/Logo.png')}
           style={styles.advertisementLogoImage}
           accessibilityLabel="CleanMyStreet logo"
         />
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   sectionCard: { backgroundColor: '#F1F1F1', borderRadius: 9, padding: 10, marginBottom: 18 },
   advertisementCard: { backgroundColor: '#F1F1F1', borderRadius: 9, padding: 12, marginBottom: 18, minHeight: 104, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   advertisementBrand: { flex: 1, minWidth: 0 },
-  advertisementLogo: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  advertisementLogo: { width: 56, height: 56, borderRadius: 0, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   advertisementLogoImage: { width: 46, height: 46, resizeMode: 'contain' },
   advertisementBrandName: { color: '#17201A', fontSize: 10, fontWeight: '600', marginBottom: 8 },
   advertisementTitle: { color: '#17201A', fontSize: 13, fontWeight: '700', marginBottom: 4 },
@@ -353,6 +353,6 @@ const styles = StyleSheet.create({
   campaignButton: { flex: 1, minHeight: 32, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   shareButton: { backgroundColor: '#FFFFFF' },
   bottomNav: { minHeight: 68, borderTopWidth: 1, borderTopColor: '#E8E8E8', backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 10 },
-  addButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: '#68706A', alignItems: 'center', justifyContent: 'center' },
-  addButtonText: { color: '#17201A', fontSize: 28, fontWeight: '300', lineHeight: 30 },
+  addButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: '#68706A', alignItems: 'center', justifyContent: 'center'},
+  addButtonText: { color: '#68706A', fontSize: 28, fontWeight: '300', lineHeight: 30, padding: 0, margin:0},
 });
