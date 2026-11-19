@@ -59,14 +59,15 @@ The featured campaign screen submits pledges for the Firestore document
 `campaigns/musgrave-road-cleanup`; create that document before using the
 contribution form by running `npm --prefix functions run seed` with Admin
 credentials (`gcloud auth application-default login` or
-`GOOGLE_APPLICATION_CREDENTIALS`). The same script creates the starter
-`newsArticles` documents shown on the News screen. It skips any document that
-already exists.
+`GOOGLE_APPLICATION_CREDENTIALS`). It skips the campaign document if it already
+exists.
 
 News articles are read from the `newsArticles` collection, newest
 `publishedAt` first. Each document needs `title`, `story`, `category` (`Most
 Popular`, `Recent News`, `Recycling` or `Sites`) and a `publishedAt` timestamp;
-`imageUrl` is optional. Add or edit articles in the Firebase console.
+`imageUrl` or `imagePath` is optional. `imageUrl` can be a direct HTTP(S) URL;
+Storage paths in either field are resolved to download URLs by the app. Add or
+edit articles in the Firebase console.
 
 In-app notifications live in `users/{userId}/notifications`. The API writes one
 when a report is submitted and when a pledge is recorded; users can only change
