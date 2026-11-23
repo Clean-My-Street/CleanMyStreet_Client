@@ -7,8 +7,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
 import { useRouter } from "expo-router";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { doc, onSnapshot } from "firebase/firestore";
-import { JSX, useCallback, useEffect, useState } from "react";
+import { JSX, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -17,7 +18,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import WebMap from "../components/WebMap";
@@ -53,30 +54,34 @@ export default function Sites(): JSX.Element {
 
   const [viewMode, setViewMode] = useState<ViewMode>("Map");
   const [activeFilter, setActiveFilter] = useState<Status | "All">("All");
-
   const [reports, setReports] = useState<Report[]>([]);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [profilePictureUrl, setProfilePictureUrl] =useState<string | null>(null);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  
 
-  // LOAD REPORTS FROM BACKEND
   const loadReports = useCallback(async () => {
     try {
       setErrorMessage("");
-
       const savedReports = await getReports();
-      setReports(savedReports);
+
+console.log(
+  "REPORT MEDIA DEBUG:",
+  savedReports.map((report) => ({
+    id: report.id,
+    imageUrl: report.imageUrl,
+    imageUrls: report.imageUrls,
+    imageCount: report.imageUrls?.length,
+    videoUrl: report.videoUrl,
+  }))
+);
+
+setReports(savedReports);
     } catch (error) {
       console.error("Error loading reports:", error);
-
       setErrorMessage(
-        getApiErrorMessage(
-          error,
-          "Could not load dumping-site reports.",
-        ),
+        getApiErrorMessage(error, "Could not load dumping-site reports.")
       );
     } finally {
       setIsLoading(false);
@@ -88,7 +93,7 @@ export default function Sites(): JSX.Element {
     loadReports();
   }, [loadReports]);
 
-  // LOAD USER PROFILE PICTURE
+  // Load the user's profile picture.
   useEffect(() => {
     if (!user) {
       setProfilePictureUrl(null);
@@ -102,11 +107,10 @@ export default function Sites(): JSX.Element {
       (snapshot) => {
         if (snapshot.exists()) {
           const savedUrl = snapshot.data().profilePictureUrl;
-
           setProfilePictureUrl(
             typeof savedUrl === "string" && savedUrl.trim() !== ""
               ? savedUrl
-              : null,
+              : null
           );
         } else {
           setProfilePictureUrl(null);
@@ -114,53 +118,57 @@ export default function Sites(): JSX.Element {
       },
       (error) => {
         console.error("Error loading profile picture:", error);
-      },
+      }
     );
 
     return unsubscribe;
   }, [user?.uid]);
 
-  // PULL TO REFRESH
   const refreshReports = () => {
     setIsRefreshing(true);
     loadReports();
   };
 
-  // APPLY STATUS FILTER
   const filteredReports =
     activeFilter === "All"
       ? reports
       : reports.filter(
-          (report) => getDisplayStatus(report.status) === activeFilter,
+          (report) => getDisplayStatus(report.status) === activeFilter
         );
 
-        // Only reports with valid GPS coordinates can appear on the map.
-const reportsWithCoordinates = filteredReports.filter(
-  (report) =>
-    typeof report.latitude === "number" &&
-    Number.isFinite(report.latitude) &&
-    typeof report.longitude === "number" &&
-    Number.isFinite(report.longitude),
-);
+  // Only keep a selection that is still visible under the active filter.
+  const visibleSelectedReport =
+    selectedReport &&
+    filteredReports.some((report) => report.id === selectedReport.id)
+      ? selectedReport
+      : null;
 
-// Calculate the centre of the map using the available report locations.
-const mapRegion =
-  reportsWithCoordinates.length > 0
-    ? {
-        latitude:
-          reportsWithCoordinates.reduce(
-            (total, report) => total + report.latitude!,
-            0,
-          ) / reportsWithCoordinates.length,
-        longitude:
-          reportsWithCoordinates.reduce(
-            (total, report) => total + report.longitude!,
-            0,
-          ) / reportsWithCoordinates.length,
-        latitudeDelta: 0.03,
-        longitudeDelta: 0.03,
-      }
-    : null;
+  // Support new multiple-image reports and older single-image reports.
+  const selectedImages = useMemo(() => {
+    if (!visibleSelectedReport) return [];
+
+    const images =
+      Array.isArray(visibleSelectedReport.imageUrls) &&
+      visibleSelectedReport.imageUrls.length > 0
+        ? visibleSelectedReport.imageUrls
+        : visibleSelectedReport.imageUrl
+          ? [visibleSelectedReport.imageUrl]
+          : [];
+
+    return [...new Set(images.filter((url) => typeof url === "string" && url.trim()))]
+      .slice(0, 10);
+  }, [visibleSelectedReport]);
+
+  const selectedVideoUrl = visibleSelectedReport?.videoUrl || null;
+
+  // The player is created through the Expo Video hook.
+  const videoPlayer = useVideoPlayer(selectedVideoUrl, (player) => {
+    player.loop = false;
+  });
+
+  const selectReport = (report: Report) => {
+    setSelectedReport(report);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -272,100 +280,102 @@ const mapRegion =
             ))}
           </ScrollView>
 
-         {/* INTERACTIVE MAP */}
-{viewMode === "Map" ? (
-  <WebMap
-    reports={filteredReports}
-    onMarkerPress={(report) => setSelectedReport(report)}
-  />
-) : (
-  <View style={styles.mapBox}>
-    <Text style={styles.mapIcon}>⌖</Text>
+          {/* MAP OR LIST */}
+          {viewMode === "Map" ? (
+            <WebMap
+              reports={filteredReports}
+              selectedReport={visibleSelectedReport}
+              onMarkerPress={selectReport}
+            />
+          ) : (
+            <View style={styles.mapBox}>
+              <Text style={styles.mapIcon}>⌖</Text>
+              <Text style={styles.mapTitle}>
+                {filteredReports.length} Reported Sites
+              </Text>
+              <Text style={styles.mapSubtitle}>
+                Select a site below to view its photos and video.
+              </Text>
+            </View>
+          )}
 
-    <Text style={styles.mapTitle}>
-      {reports.length} Reported Sites
-    </Text>
+          {/* SELECTED REPORT DETAILS AND MEDIA */}
+          {visibleSelectedReport && (
+            <View style={styles.selectedReportCard}>
+              <View style={styles.selectedHeader}>
+                <View style={styles.selectedReportInfo}>
+                  <Text style={styles.siteName}>
+                    {visibleSelectedReport.wasteType || "Dumping Site"}
+                  </Text>
 
-    <Text style={styles.mapSubtitle}>
-      Your saved dumping-site reports are listed below.
-    </Text>
-  </View>
-)}
+                  <Text style={styles.description}>
+                    {visibleSelectedReport.description}
+                  </Text>
 
-{/* SELECTED MAP REPORT */}
-{viewMode === "Map" &&
-  selectedReport &&
-  filteredReports.some(
-    (report) => report.id === selectedReport.id
-  ) && (
-    <View style={styles.selectedReportCard}>
-      {selectedReport.imageUrl ? (
-        <Image
-          source={{ uri: selectedReport.imageUrl }}
-          style={styles.selectedReportImage}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={styles.selectedReportImage}>
-          <Text style={styles.imageText}>No image</Text>
-        </View>
-      )}
+                  <Text style={styles.distance}>
+                    Status: {getDisplayStatus(visibleSelectedReport.status)}
+                  </Text>
 
-      <View style={styles.selectedReportInfo}>
-        <Text style={styles.siteName}>
-          {selectedReport.wasteType || "Dumping Site"}
-        </Text>
+                  {visibleSelectedReport.latitude !== null &&
+                    visibleSelectedReport.longitude !== null && (
+                      <Text style={styles.distance}>
+                        GPS: {visibleSelectedReport.latitude.toFixed(5)},{" "}
+                        {visibleSelectedReport.longitude.toFixed(5)}
+                      </Text>
+                    )}
+                </View>
 
-        <Text style={styles.description}>
-          {selectedReport.description}
-        </Text>
+                <Pressable
+                  onPress={() => setSelectedReport(null)}
+                  accessibilityLabel="Close selected report"
+                >
+                  <Text style={styles.closeSelectedReport}>✕</Text>
+                </Pressable>
+              </View>
 
-        <Text style={styles.distance}>
-          Status: {getDisplayStatus(selectedReport.status)}
-        </Text>
-      </View>
+              {/* PHOTO GALLERY */}
+              <Text style={styles.mediaHeading}>
+                Photos ({selectedImages.length}/10)
+              </Text>
 
-      <Pressable onPress={() => setSelectedReport(null)}>
-        <Text style={styles.closeSelectedReport}>✕</Text>
-      </Pressable>
-    </View>
-  )}
-{/* SELECTED MAP REPORT */}
-{viewMode === "Map" &&
-  selectedReport &&
-  filteredReports.some((report) => report.id === selectedReport.id) && (
-    <View style={styles.selectedReportCard}>
-      {selectedReport.imageUrl ? (
-        <Image
-          source={{ uri: selectedReport.imageUrl }}
-          style={styles.selectedReportImage}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={styles.selectedReportImage}>
-          <Text style={styles.imageText}>No image</Text>
-        </View>
-      )}
+              {selectedImages.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.mediaGallery}
+                >
+                  {selectedImages.map((url, index) => (
+                    <Image
+                      key={`${url}-${index}`}
+                      source={{ uri: url }}
+                      style={styles.galleryImage}
+                      resizeMode="cover"
+                    />
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={styles.noMedia}>
+                  <Text style={styles.imageText}>No photos attached</Text>
+                </View>
+              )}
 
-      <View style={styles.selectedReportInfo}>
-        <Text style={styles.siteName}>
-          {selectedReport.wasteType || "Dumping Site"}
-        </Text>
+              {/* VIDEO PLAYER */}
+              {selectedVideoUrl ? (
+                <View style={styles.videoSection}>
+                  <Text style={styles.mediaHeading}>Recorded video</Text>
 
-        <Text style={styles.description}>
-          {selectedReport.description}
-        </Text>
-
-        <Text style={styles.distance}>
-          Status: {getDisplayStatus(selectedReport.status)}
-        </Text>
-      </View>
-
-      <Pressable onPress={() => setSelectedReport(null)}>
-        <Text style={styles.closeSelectedReport}>✕</Text>
-      </Pressable>
-    </View>
-  )}
+                  <VideoView
+                    player={videoPlayer}
+                    style={styles.videoPlayer}
+                    nativeControls
+                    contentFit="contain"
+                  />
+                </View>
+              ) : (
+                <Text style={styles.noVideoText}>No video attached</Text>
+              )}
+            </View>
+          )}
 
           {/* NEARBY SITES PANEL */}
           <View style={styles.nearbyPanel}>
@@ -380,26 +390,18 @@ const mapRegion =
             {isLoading ? (
               <View style={styles.messageContainer}>
                 <ActivityIndicator size="large" color="#FFFFFF" />
-                <Text style={styles.messageText}>
-                  Loading reports...
-                </Text>
+                <Text style={styles.messageText}>Loading reports...</Text>
               </View>
             ) : errorMessage ? (
               <View style={styles.messageContainer}>
                 <Text style={styles.messageText}>{errorMessage}</Text>
-
-                <Pressable
-                  style={styles.retryButton}
-                  onPress={loadReports}
-                >
+                <Pressable style={styles.retryButton} onPress={loadReports}>
                   <Text style={styles.retryButtonText}>Try again</Text>
                 </Pressable>
               </View>
             ) : filteredReports.length === 0 ? (
               <View style={styles.messageContainer}>
-                <Text style={styles.messageText}>
-                  No reports found.
-                </Text>
+                <Text style={styles.messageText}>No reports found.</Text>
                 <Text style={styles.emptySubText}>
                   Submitted dumping-site reports will appear here.
                 </Text>
@@ -408,13 +410,23 @@ const mapRegion =
               <View style={styles.siteList}>
                 {filteredReports.map((report) => {
                   const status = getDisplayStatus(report.status);
+                  const thumbnail =
+                    report.imageUrls?.[0] || report.imageUrl || null;
+                  const isSelected =
+                    visibleSelectedReport?.id === report.id;
 
                   return (
-                    <View key={report.id} style={styles.siteCard}>
-                      {/* REPORT PHOTO */}
-                      {report.imageUrl ? (
+                    <Pressable
+                      key={report.id}
+                      style={[
+                        styles.siteCard,
+                        isSelected && styles.selectedSiteCard,
+                      ]}
+                      onPress={() => selectReport(report)}
+                    >
+                      {thumbnail ? (
                         <Image
-                          source={{ uri: report.imageUrl }}
+                          source={{ uri: thumbnail }}
                           style={styles.siteImage}
                           resizeMode="cover"
                         />
@@ -424,7 +436,6 @@ const mapRegion =
                         </View>
                       )}
 
-                      {/* REPORT INFORMATION */}
                       <View style={styles.siteInfo}>
                         <Text style={styles.siteName}>
                           {report.wasteType || "Dumping Site"}
@@ -463,8 +474,12 @@ const mapRegion =
                             {new Date(report.createdAt).toLocaleDateString()}
                           </Text>
                         )}
+
+                        <Text style={styles.selectSiteText}>
+                          {isSelected ? "Selected" : "Tap to view media"}
+                        </Text>
                       </View>
-                    </View>
+                    </Pressable>
                   );
                 })}
               </View>
@@ -485,11 +500,7 @@ const mapRegion =
             onPress={() => router.push("/news")}
             accessibilityLabel="View News"
           >
-            <FontAwesomeIcon
-              icon={faNewspaper}
-              size={20}
-              color="#124A2A"
-            />
+            <FontAwesomeIcon icon={faNewspaper} size={20} color="#124A2A" />
           </Pressable>
 
           <Pressable
@@ -560,24 +571,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-
   screen: {
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 30,
   },
-
   header: {
     height: 55,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
   },
-
   logoMark: {
     width: 30,
     height: 30,
@@ -587,27 +594,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginLeft: 13,
   },
-
   backIcon: {
     color: "#17201A",
     fontSize: 32,
     lineHeight: 32,
     marginRight: 8,
   },
-
   logo: {
     width: 30,
     height: 30,
     resizeMode: "contain",
   },
-
   headerTitle: {
     color: "#17201A",
     fontSize: 14,
     fontWeight: "700",
     marginLeft: 9,
   },
-
   viewToggle: {
     flexDirection: "row",
     backgroundColor: "#EDEDED",
@@ -616,7 +619,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
   },
-
   viewButton: {
     flex: 1,
     height: 38,
@@ -624,26 +626,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   activeViewButton: {
     backgroundColor: "#1F7A3F",
   },
-
   viewButtonText: {
     color: "#17201A",
     fontSize: 12,
     fontWeight: "600",
   },
-
   activeViewText: {
     color: "#FFFFFF",
   },
-
   filterContainer: {
     gap: 7,
     paddingBottom: 12,
   },
-
   filterButton: {
     height: 34,
     paddingHorizontal: 14,
@@ -652,104 +649,88 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   activeFilterButton: {
     backgroundColor: "#17201A",
   },
-
   filterText: {
     color: "#17201A",
     fontSize: 10,
     fontWeight: "600",
   },
-
   activeFilterText: {
     color: "#FFFFFF",
   },
-
- mapBox: {
-  height: 245,
-  backgroundColor: "#E3E3E3",
-  borderRadius: 12,
-  overflow: "hidden",
-},
-
+  mapBox: {
+    height: 245,
+    backgroundColor: "#E3E3E3",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   mapIcon: {
     color: "#1F7A3F",
     fontSize: 45,
     marginBottom: 5,
   },
-
   mapTitle: {
     color: "#17201A",
     fontSize: 15,
     fontWeight: "700",
   },
-
   mapSubtitle: {
     color: "#68706A",
     fontSize: 10,
     marginTop: 4,
     textAlign: "center",
   },
-
   nearbyPanel: {
     backgroundColor: "#1F7A3F",
     borderRadius: 18,
-    marginTop: -25,
+    marginTop: 12,
     padding: 16,
     paddingBottom: 22,
     minHeight: 300,
   },
-
   nearbyTitle: {
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "700",
   },
-
   panelSubtitle: {
     color: "#D9F1E1",
     fontSize: 10,
     marginTop: 4,
     marginBottom: 14,
   },
-
   messageContainer: {
     alignItems: "center",
     paddingVertical: 25,
     gap: 10,
   },
-
   messageText: {
     color: "#FFFFFF",
     fontSize: 12,
     textAlign: "center",
   },
-
   emptySubText: {
     color: "#D9F1E1",
     fontSize: 10,
     textAlign: "center",
   },
-
   retryButton: {
     backgroundColor: "#FFFFFF",
     borderRadius: 7,
     paddingVertical: 9,
     paddingHorizontal: 18,
   },
-
   retryButtonText: {
     color: "#1F7A3F",
     fontSize: 11,
     fontWeight: "700",
   },
-
   siteList: {
     gap: 10,
   },
-
   siteCard: {
     minHeight: 100,
     backgroundColor: "#E5E8E5",
@@ -757,7 +738,10 @@ const styles = StyleSheet.create({
     padding: 9,
     flexDirection: "row",
   },
-
+  selectedSiteCard: {
+    borderWidth: 2,
+    borderColor: "#FFD700",
+  },
   siteImage: {
     width: 78,
     height: 78,
@@ -766,36 +750,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   imageText: {
     color: "#777D78",
     fontSize: 9,
   },
-
   siteInfo: {
     flex: 1,
     marginLeft: 11,
     justifyContent: "center",
   },
-
   siteName: {
     color: "#17201A",
     fontSize: 13,
     fontWeight: "700",
   },
-
   distance: {
     color: "#68706A",
     fontSize: 9,
     marginTop: 4,
   },
-
   description: {
     color: "#17201A",
     fontSize: 10,
     marginTop: 5,
   },
-
   statusBadge: {
     alignSelf: "flex-start",
     borderRadius: 9,
@@ -803,18 +781,78 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     marginTop: 7,
   },
-
   statusText: {
     fontSize: 8,
     fontWeight: "700",
   },
-
   dateText: {
     color: "#68706A",
     fontSize: 9,
     marginTop: 5,
   },
-
+  selectSiteText: {
+    color: "#1F7A3F",
+    fontSize: 9,
+    fontWeight: "700",
+    marginTop: 6,
+  },
+  selectedReportCard: {
+    backgroundColor: "#E5E8E5",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  },
+  selectedHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  selectedReportInfo: {
+    flex: 1,
+  },
+  closeSelectedReport: {
+    color: "#17201A",
+    fontSize: 18,
+    fontWeight: "700",
+    padding: 5,
+  },
+  mediaHeading: {
+    color: "#17201A",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  mediaGallery: {
+    gap: 9,
+    paddingBottom: 4,
+  },
+  galleryImage: {
+    width: 170,
+    height: 130,
+    borderRadius: 9,
+    backgroundColor: "#C7CBC7",
+  },
+  noMedia: {
+    height: 90,
+    backgroundColor: "#D5D9D5",
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoSection: {
+    marginTop: 8,
+  },
+  videoPlayer: {
+    width: "100%",
+    height: 220,
+    backgroundColor: "#17201A",
+    borderRadius: 9,
+  },
+  noVideoText: {
+    color: "#68706A",
+    fontSize: 10,
+    marginTop: 12,
+  },
   bottomNav: {
     minHeight: 68,
     borderTopWidth: 1,
@@ -825,7 +863,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     paddingHorizontal: 10,
   },
-
   addButton: {
     width: 42,
     height: 42,
@@ -835,21 +872,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   addButtonText: {
     color: "#17201A",
     fontSize: 28,
     fontWeight: "300",
     lineHeight: 30,
   },
-
   profileNavButton: {
     width: 36,
     height: 36,
     alignItems: "center",
     justifyContent: "center",
   },
-
   profileNavImage: {
     width: 28,
     height: 28,
@@ -857,46 +891,4 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#36B86B",
   },
-  map: {
-  width: "100%",
-  height: "100%",
-},
-
-mapPlaceholder: {
-  flex: 1,
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 20,
-},
-
-selectedReportCard: {
-  flexDirection: "row",
-  alignItems: "center",
-  backgroundColor: "#E5E8E5",
-  borderRadius: 12,
-  padding: 10,
-  marginTop: 10,
-  marginBottom: 10,
-},
-
-selectedReportImage: {
-  width: 65,
-  height: 65,
-  borderRadius: 8,
-  backgroundColor: "#C7CBC7",
-  alignItems: "center",
-  justifyContent: "center",
-},
-
-selectedReportInfo: {
-  flex: 1,
-  marginLeft: 10,
-},
-
-closeSelectedReport: {
-  color: "#17201A",
-  fontSize: 18,
-  fontWeight: "700",
-  padding: 5,
-},
 });

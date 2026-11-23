@@ -20,6 +20,7 @@ export default function EditProfile() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [bio, setBio] = useState('');
   const [email, setEmail] = useState(user?.email ?? '');
+  const [homeAddress, setHomeAddress] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
@@ -76,6 +77,7 @@ export default function EditProfile() {
         if (profileSnapshot.exists()) {
   // Get the user's saved profile data from Firestore.
   const profileData = profileSnapshot.data();
+  setHomeAddress(profileData.homeAddress ?? '');
 
   // Load the user's full name.
   if (profileData.fullName) {
@@ -84,6 +86,7 @@ export default function EditProfile() {
     setFullName(user.displayName);
   } else {
     setFullName('');
+    setHomeAddress('');
   }
 
   // Load the user's phone number.
@@ -196,6 +199,7 @@ const handleSave = async () => {
 
   const trimmedName = fullName.trim();
   const trimmedEmail = email.trim().toLowerCase();
+  const trimmedAddress = homeAddress.trim();
 
   if (!trimmedName) {
     Alert.alert("Name required", "Please enter your name.");
@@ -206,6 +210,10 @@ const handleSave = async () => {
     Alert.alert("Email required", "Please enter your email address.");
     return;
   }
+  if (!trimmedAddress) {
+  Alert.alert('Address required', 'Please enter your home address.');
+  return;
+}
 
   setSaving(true);
 
@@ -270,6 +278,7 @@ await setDoc(
     fullName: trimmedName,
     email: trimmedEmail,
     phoneNumber: phoneNumber.trim(),
+    homeAddress: trimmedAddress,
     bio: bio.trim(),
     profilePictureUrl,
     createdAt: existingData.createdAt ?? serverTimestamp(),
@@ -380,6 +389,20 @@ console.log('Profile details and picture URL saved to Firestore.');
                 <FontAwesomeIcon icon={faEnvelope} size={16} color="#17201A" />
               </View>
             </View>
+            <View style={styles.fieldContainer}>
+  <Text style={styles.label}>Home Address</Text>
+  <View style={styles.inputContainer}>
+    <TextInput
+      style={styles.input}
+      value={homeAddress}
+      onChangeText={setHomeAddress}
+      placeholder="Enter your home address"
+      placeholderTextColor="#999999"
+      autoCapitalize="words"
+    />
+    <FontAwesomeIcon icon={faHome} size={16} color="#17201A" />
+  </View>
+</View>
 
             <Pressable style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={handleSave} disabled={saving || loadingProfile}>
               <Text style={styles.saveButtonText}>{loadingProfile ? 'Loading Profile...' : saving ? 'Saving...' : 'Save Changes'}</Text>

@@ -10,15 +10,19 @@
     "ios": {
       "icon": "./assets/images/cleanmystreet.png"
     },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/cleanmystreet.png",
-        "backgroundImage": "./assets/images/cleanmystreet.png",
-        "monochromeImage": "./assets/images/cleanmystreet.png"
-      },
-      "predictiveBackGestureEnabled": false
-    },
+"android": {
+  "adaptiveIcon": {
+    "backgroundColor": "#E6F4FE",
+    "foregroundImage": "./assets/images/cleanmystreet.png",
+    "backgroundImage": "./assets/images/cleanmystreet.png",
+    "monochromeImage": "./assets/images/cleanmystreet.png"
+  },
+  "permissions": [
+    "CAMERA",
+    "RECORD_AUDIO"
+  ],
+  "predictiveBackGestureEnabled": false
+},
     "web": {
       "output": "static",
       "favicon": "./assets/images/cleanmystreet.png"
@@ -37,7 +41,8 @@
       "expo-web-browser",
       "expo-asset",
       "expo-image",
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,

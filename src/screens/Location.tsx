@@ -2,13 +2,12 @@
 import {
   faHome,
   faNewspaper,
-  faUser,
   faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-native-fontawesome";
+import { File } from "expo-file-system";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, onSnapshot } from "firebase/firestore";
 import {
   getDownloadURL,
   ref as storageRef,
@@ -26,8 +25,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { createReport, getApiErrorMessage } from "../services/api";
-import { auth, db, storage } from "../services/firebase";
+import { ProfileNavButton } from "../components/ProfileNavButton";
+import {
+  createReport,
+  getApiErrorMessage,
+  type WasteType,
+} from "../services/api";
+import { auth, storage } from "../services/firebase";
 
 type Coordinates = {
   latitude: number;
@@ -36,25 +40,66 @@ type Coordinates = {
 
 export default function LocationScreen(): JSX.Element {
   const router = useRouter();
-  const { photoUri } = useLocalSearchParams<{
+
+  // Receive the captured media from ReportDumping.tsx.
+  const { photoUri, photoUris, videoUri } = useLocalSearchParams<{
     photoUri?: string | string[];
+    photoUris?: string | string[];
+    videoUri?: string | string[];
   }>();
 
-  const capturedPhotoUri = Array.isArray(photoUri)
-    ? photoUri[0]
-    : photoUri;
+  // Support multiple photos and older single-photo reports.
+  const capturedPhotoUris: string[] = (() => {
+    const rawPhotos = Array.isArray(photoUris)
+      ? photoUris[0]
+      : photoUris;
+
+    if (rawPhotos) {
+      try {
+        const parsed = JSON.parse(rawPhotos);
+
+        if (Array.isArray(parsed)) {
+          return [
+            ...new Set(
+              parsed.filter(
+                (uri): uri is string =>
+                  typeof uri === "string" && uri.length > 0,
+              ),
+            ),
+          ];
+        }
+      } catch {
+        // Use the older single-photo parameter if parsing fails.
+      }
+    }
+
+    const oldPhoto = Array.isArray(photoUri)
+      ? photoUri[0]
+      : photoUri;
+
+    return oldPhoto ? [oldPhoto] : [];
+  })();
+
+  const capturedVideoUri = Array.isArray(videoUri)
+    ? videoUri[0]
+    : videoUri;
 
   const user = auth.currentUser;
 
-  const [profilePictureUrl, setProfilePictureUrl] =
-    useState<string | null>(null);
+  // FORM STATE
+  const [wasteType, setWasteType] =
+    useState<WasteType>("Illegal Dumping");
 
-  const [wasteType, setWasteType] = useState("Illegal Dumping");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
-  const [isGettingLocation, setIsGettingLocation] = useState(true);
+  // GPS STATE
+  const [coordinates, setCoordinates] =
+    useState<Coordinates | null>(null);
+
+  const [isGettingLocation, setIsGettingLocation] =
+    useState(true);
+
   const [locationError, setLocationError] = useState("");
 
   // GET DEVICE GPS LOCATION
@@ -68,9 +113,11 @@ export default function LocationScreen(): JSX.Element {
 
       if (permission.status !== "granted") {
         setCoordinates(null);
+
         setLocationError(
           "Location permission denied. Please allow location access.",
         );
+
         return;
       }
 
@@ -85,8 +132,12 @@ export default function LocationScreen(): JSX.Element {
       });
     } catch (error) {
       console.error("Error retrieving GPS location:", error);
+
       setCoordinates(null);
-      setLocationError("Could not retrieve your location. Please try again.");
+
+      setLocationError(
+        "Could not retrieve your location. Please try again.",
+      );
     } finally {
       setIsGettingLocation(false);
     }
@@ -97,56 +148,44 @@ export default function LocationScreen(): JSX.Element {
     getDeviceLocation();
   }, []);
 
-  // LOAD USER PROFILE PICTURE
-  useEffect(() => {
-    if (!user) {
-      setProfilePictureUrl(null);
-      return;
-    }
+  // UPLOAD A PHOTO OR VIDEO TO FIREBASE STORAGE
+  // UPLOAD A PHOTO OR VIDEO TO FIREBASE STORAGE
+const uploadReportMedia = async (
+  uri: string,
+  mediaType: "image" | "video",
+  index: number,
+): Promise<string> => {
+  if (!user) {
+    throw new Error("You must be signed in to upload a report.");
+  }
 
-    const userRef = doc(db, "users", user.uid);
+  // Read the captured media directly from the device.
+  const file = new File(uri);
+  const mediaBytes = await file.bytes();
 
-    const unsubscribe = onSnapshot(
-      userRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const savedUrl = snapshot.data().profilePictureUrl;
+  if (mediaBytes.length === 0) {
+    throw new Error("The captured media file is empty.");
+  }
 
-          setProfilePictureUrl(
-            typeof savedUrl === "string" && savedUrl.trim() !== ""
-              ? savedUrl
-              : null,
-          );
-        } else {
-          setProfilePictureUrl(null);
-        }
-      },
-      (error) => {
-        console.error("Error loading profile picture:", error);
-      },
-    );
+  const timestamp = Date.now();
 
-    return unsubscribe;
-  }, [user?.uid]);
+  const extension = mediaType === "image" ? "jpg" : "mp4";
 
-  // UPLOAD PHOTO TO FIREBASE STORAGE
-  const uploadReportPhoto = async (uri: string): Promise<string> => {
-    if (!user) {
-      throw new Error("You must be signed in to upload a report.");
-    }
+  const contentType =
+    mediaType === "image" ? "image/jpeg" : "video/mp4";
 
-    const response = await fetch(uri);
-    const photoBlob = await response.blob();
+  const filePath =
+    `reports/${user.uid}/${timestamp}-${mediaType}-${index}.${extension}`;
 
-    const filePath = `reports/${user.uid}/${Date.now()}.jpg`;
-    const fileReference = storageRef(storage, filePath);
+  const fileReference = storageRef(storage, filePath);
 
-    await uploadBytes(fileReference, photoBlob, {
-      contentType: "image/jpeg",
-    });
+  // Upload the file bytes to Firebase Storage.
+  await uploadBytes(fileReference, mediaBytes, {
+    contentType,
+  });
 
-    return await getDownloadURL(fileReference);
-  };
+  return await getDownloadURL(fileReference);
+};
 
   // SUBMIT REPORT
   const submitReport = async () => {
@@ -160,10 +199,14 @@ export default function LocationScreen(): JSX.Element {
       return;
     }
 
-    if (!capturedPhotoUri) {
+    // Require at least one photo or video.
+    if (
+      capturedPhotoUris.length === 0 &&
+      !capturedVideoUri
+    ) {
       Alert.alert(
-        "Photo required",
-        "Please go back and capture a photo of the dumping site.",
+        "Media required",
+        "Please capture at least one photo or record a video of the dumping site.",
       );
       return;
     }
@@ -178,33 +221,56 @@ export default function LocationScreen(): JSX.Element {
 
     if (isSubmitting) return;
 
-    // Make sure GPS coordinates are available.
-    let reportCoordinates = coordinates;
+    // Check GPS coordinates.
+    const reportCoordinates = coordinates;
 
     if (!reportCoordinates) {
       await getDeviceLocation();
+
       Alert.alert(
         "Location required",
         "Please check that your GPS is enabled and try submitting again.",
       );
+
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // First upload the captured photo.
-      const imageUrl = await uploadReportPhoto(capturedPhotoUri);
+      // STEP 1: UPLOAD ALL PHOTOS.
+      const imageUrls = await Promise.all(
+        capturedPhotoUris.map((uri, index) =>
+          uploadReportMedia(uri, "image", index),
+        ),
+      );
 
-      // Then save the report through the backend API.
+      // STEP 2: UPLOAD VIDEO IF ONE WAS RECORDED.
+      let uploadedVideoUrl: string | null = null;
+
+      if (capturedVideoUri) {
+        uploadedVideoUrl = await uploadReportMedia(
+          capturedVideoUri,
+          "video",
+          0,
+        );
+      }
+      console.log("IMAGE URLS BEING SENT TO BACKEND:", imageUrls);
+      console.log("NUMBER OF IMAGE URLS:", imageUrls.length);
+      // STEP 3: SAVE THE REPORT THROUGH THE BACKEND API.
       await createReport({
         description: reportDescription,
         wasteType,
         latitude: reportCoordinates.latitude,
         longitude: reportCoordinates.longitude,
-        imageUrl,
+
+        // Keep the first photo for older app versions.
+        imageUrl: imageUrls[0],
+        imageUrls,
+        videoUrl: uploadedVideoUrl,
       });
 
+      // STEP 4: CONFIRM SUCCESS.
       Alert.alert(
         "Report submitted",
         "Your dumping-site report has been saved for review.",
@@ -250,14 +316,19 @@ export default function LocationScreen(): JSX.Element {
               />
             </View>
 
-            <Text style={styles.brandName}>Report a Dumping Site</Text>
+            <Text style={styles.brandName}>
+              Report a Dumping Site
+            </Text>
           </View>
 
           {/* LOCATION */}
-          <Text style={styles.sectionTitle}>Location (GPS)</Text>
+          <Text style={styles.sectionTitle}>
+            Location (GPS)
+          </Text>
 
           <View style={styles.mapBox}>
             <Text style={styles.mapIcon}>⌖</Text>
+
             <Text style={styles.mapText}>
               {isGettingLocation
                 ? "Getting your location..."
@@ -271,6 +342,7 @@ export default function LocationScreen(): JSX.Element {
                 <Text style={styles.mapSubText}>
                   Latitude: {coordinates.latitude.toFixed(6)}
                 </Text>
+
                 <Text style={styles.mapSubText}>
                   Longitude: {coordinates.longitude.toFixed(6)}
                 </Text>
@@ -287,13 +359,17 @@ export default function LocationScreen(): JSX.Element {
               style={styles.locationButton}
             >
               <Text style={styles.locationButtonText}>
-                {isGettingLocation ? "Getting location..." : "Refresh location"}
+                {isGettingLocation
+                  ? "Getting location..."
+                  : "Refresh location"}
               </Text>
             </Pressable>
           </View>
 
           {/* DESCRIPTION */}
-          <Text style={styles.sectionTitle}>Description</Text>
+          <Text style={styles.sectionTitle}>
+            Description
+          </Text>
 
           <TextInput
             value={description}
@@ -306,20 +382,24 @@ export default function LocationScreen(): JSX.Element {
           />
 
           {/* WASTE TYPE */}
-          <Text style={styles.sectionTitle}>Waste Type</Text>
+          <Text style={styles.sectionTitle}>
+            Waste Type
+          </Text>
 
           <View style={styles.wasteTypeContainer}>
             <Pressable
               style={[
                 styles.wasteOption,
-                wasteType === "Household" && styles.selectedWaste,
+                wasteType === "Household" &&
+                  styles.selectedWaste,
               ]}
               onPress={() => setWasteType("Household")}
             >
               <Text
                 style={[
                   styles.wasteText,
-                  wasteType === "Household" && styles.selectedWasteText,
+                  wasteType === "Household" &&
+                    styles.selectedWasteText,
                 ]}
               >
                 Household
@@ -329,14 +409,16 @@ export default function LocationScreen(): JSX.Element {
             <Pressable
               style={[
                 styles.wasteOption,
-                wasteType === "Construction" && styles.selectedWaste,
+                wasteType === "Construction" &&
+                  styles.selectedWaste,
               ]}
               onPress={() => setWasteType("Construction")}
             >
               <Text
                 style={[
                   styles.wasteText,
-                  wasteType === "Construction" && styles.selectedWasteText,
+                  wasteType === "Construction" &&
+                    styles.selectedWasteText,
                 ]}
               >
                 Construction
@@ -346,19 +428,36 @@ export default function LocationScreen(): JSX.Element {
             <Pressable
               style={[
                 styles.wasteOption,
-                wasteType === "Illegal Dumping" && styles.selectedWaste,
+                wasteType === "Illegal Dumping" &&
+                  styles.selectedWaste,
               ]}
               onPress={() => setWasteType("Illegal Dumping")}
             >
               <Text
                 style={[
                   styles.wasteText,
-                  wasteType === "Illegal Dumping" && styles.selectedWasteText,
+                  wasteType === "Illegal Dumping" &&
+                    styles.selectedWasteText,
                 ]}
               >
                 Illegal Dumping
               </Text>
             </Pressable>
+          </View>
+
+          {/* MEDIA SUMMARY */}
+          <View style={styles.mediaSummary}>
+            <Text style={styles.mediaSummaryTitle}>
+              Attached Media
+            </Text>
+
+            <Text style={styles.mediaSummaryText}>
+              Photos: {capturedPhotoUris.length}/10
+            </Text>
+
+            <Text style={styles.mediaSummaryText}>
+              Video: {capturedVideoUri ? "1 recorded" : "Not recorded"}
+            </Text>
           </View>
 
           {/* SUBMIT BUTTON */}
@@ -372,14 +471,16 @@ export default function LocationScreen(): JSX.Element {
             accessibilityRole="button"
           >
             <Text style={styles.submitButtonText}>
-              {isSubmitting ? "Submitting..." : "Submit Report"}
+              {isSubmitting
+                ? "Uploading media and submitting..."
+                : "Submit Report"}
             </Text>
           </Pressable>
 
           {/* NOTIFICATION */}
           <Text style={styles.notificationText}>
-            You'll be notified as your report is reviewed and cleanup campaign
-            created
+            You'll be notified as your report is reviewed and
+            cleanup campaigns are created.
           </Text>
         </ScrollView>
 
@@ -389,7 +490,11 @@ export default function LocationScreen(): JSX.Element {
             onPress={() => router.push("/home")}
             accessibilityLabel="Go to Home"
           >
-            <FontAwesomeIcon icon={faHome} size={20} color="#124A2A" />
+            <FontAwesomeIcon
+              icon={faHome}
+              size={20}
+              color="#124A2A"
+            />
           </Pressable>
 
           <Pressable
@@ -414,27 +519,14 @@ export default function LocationScreen(): JSX.Element {
             onPress={() => router.push("/notifications")}
             accessibilityLabel="View notifications"
           >
-            <FontAwesomeIcon icon={faUsers} size={20} color="#124A2A" />
+            <FontAwesomeIcon
+              icon={faUsers}
+              size={20}
+              color="#124A2A"
+            />
           </Pressable>
 
-          <Pressable
-            onPress={() => router.push("/profile")}
-            accessibilityLabel="View profile"
-            style={styles.profileNavButton}
-          >
-            {profilePictureUrl ? (
-              <Image
-                source={{ uri: profilePictureUrl }}
-                style={styles.profileNavImage}
-                onError={() => {
-                  console.error("Failed to load profile picture image.");
-                  setProfilePictureUrl(null);
-                }}
-              />
-            ) : (
-              <FontAwesomeIcon icon={faUser} size={20} color="#124A2A" />
-            )}
-          </Pressable>
+          <ProfileNavButton />
         </View>
       </View>
     </SafeAreaView>
@@ -484,12 +576,6 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     resizeMode: "contain",
-  },
-
-  logoText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "800",
   },
 
   brandName: {
@@ -593,14 +679,35 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
+  mediaSummary: {
+    backgroundColor: "#EAF4ED",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+  },
+
+  mediaSummaryTitle: {
+    color: "#17201A",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 7,
+  },
+
+  mediaSummaryText: {
+    color: "#68706A",
+    fontSize: 11,
+    marginTop: 3,
+  },
+
   submitButton: {
     width: "100%",
-    height: 46,
+    minHeight: 46,
     backgroundColor: "#1F7A3F",
     borderRadius: 7,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
+    paddingHorizontal: 10,
   },
 
   disabledButton: {
@@ -611,6 +718,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "700",
+    textAlign: "center",
   },
 
   notificationText: {
@@ -648,20 +756,5 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "300",
     lineHeight: 30,
-  },
-
-  profileNavButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  profileNavImage: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#36B86B",
   },
 });

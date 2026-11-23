@@ -132,12 +132,14 @@ function responseCreatedAt(timestamp: Timestamp): string {
   return timestamp.toDate().toISOString();
 }
 
+
 app.post(
   "/reports",
   authenticate,
   asyncHandler(async (request, response) => {
     const user = getAuthenticatedUser(request);
     const body: unknown = request.body;
+
     if (!isRecord(body)) {
       throw new HttpError(400, "A JSON request body is required.");
     }
@@ -145,25 +147,69 @@ app.post(
     const description = requireString(body.description, "description", 2000);
     const latitude = optionalCoordinate(body.latitude, "latitude", -90, 90);
     const longitude = optionalCoordinate(body.longitude, "longitude", -180, 180);
+
     if ((latitude === undefined) !== (longitude === undefined)) {
-      throw new HttpError(400, "latitude and longitude must be provided together.");
+      throw new HttpError(
+        400,
+        "latitude and longitude must be provided together.",
+      );
     }
 
+    // Keep support for the original single-photo field.
     const imageUrl =
       body.imageUrl === undefined
         ? undefined
         : requireString(body.imageUrl, "imageUrl", 2048);
+
+    // New field: multiple photo URLs.
+    let imageUrls: string[] = [];
+
+    if (body.imageUrls !== undefined) {
+      if (
+        !Array.isArray(body.imageUrls) ||
+        body.imageUrls.length > 10
+      ) {
+        throw new HttpError(
+          400,
+          "imageUrls must be an array containing at most 10 URLs.",
+        );
+      }
+
+      imageUrls = body.imageUrls.map((url, index) =>
+        requireString(url, `imageUrls[${index}]`, 2048),
+      );
+    }
+
+    // If the old imageUrl field is supplied, include it in the photo list
+    // unless it is already present.
+    if (imageUrl && !imageUrls.includes(imageUrl)) {
+      imageUrls.unshift(imageUrl);
+    }
+
+    const videoUrl =
+      body.videoUrl === undefined || body.videoUrl === null
+        ? undefined
+        : requireString(body.videoUrl, "videoUrl", 2048);
+
     const wasteType =
       body.wasteType === undefined
         ? undefined
         : requireString(body.wasteType, "wasteType", 80);
+
     const createdAt = Timestamp.now();
+
     const report = {
       description,
       ...(latitude !== undefined && longitude !== undefined
         ? { location: { latitude, longitude } }
         : {}),
-      ...(imageUrl ? { imageUrl } : {}),
+      ...(imageUrls.length > 0
+        ? {
+            imageUrls,
+            imageUrl: imageUrl ?? imageUrls[0],
+          }
+        : {}),
+      ...(videoUrl ? { videoUrl } : {}),
       ...(wasteType ? { wasteType } : {}),
       reporterId: user.uid,
       status: "pending",
@@ -171,6 +217,7 @@ app.post(
     };
 
     const reference = await db.collection("reports").add(report);
+
     response.status(201).json({
       id: reference.id,
       ...report,
@@ -178,6 +225,8 @@ app.post(
     });
   }),
 );
+
+
 app.get(
   "/reports",
   authenticate,
@@ -190,12 +239,22 @@ app.get(
     const reports = snapshot.docs.map((document) => {
       const data = document.data();
 
+      // Support both new reports and older reports that only have imageUrl.
+      const imageUrls: string[] =
+        Array.isArray(data.imageUrls) && data.imageUrls.length > 0
+          ? data.imageUrls
+          : typeof data.imageUrl === "string"
+            ? [data.imageUrl]
+            : [];
+
       return {
         id: document.id,
         description: data.description,
         latitude: data.location?.latitude ?? null,
         longitude: data.location?.longitude ?? null,
-        imageUrl: data.imageUrl ?? null,
+        imageUrl: data.imageUrl ?? imageUrls[0] ?? null,
+        imageUrls,
+        videoUrl: data.videoUrl ?? null,
         wasteType: data.wasteType ?? null,
         reporterId: data.reporterId,
         status: data.status,
