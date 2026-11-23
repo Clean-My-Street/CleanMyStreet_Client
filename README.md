@@ -69,6 +69,21 @@ Popular`, `Recent News`, `Recycling` or `Sites`) and a `publishedAt` timestamp;
 Storage paths in either field are resolved to download URLs by the app. Add or
 edit articles in the Firebase console.
 
+The News And Sites screen also searches within 25 km of the device location for
+landfills, recycling centres, waste disposal sites and transfer stations. It
+uses OpenStreetMap data through the public Overpass API and, when configured,
+Google Places for landfill and recycling-centre listings. OpenStreetMap
+contributors are credited in the facility section; tapping a result opens its
+map location. Location permission is required for these searches.
+
+OpenStreetMap search works without an API key. To enable Google Places, set
+`GOOGLE_PLACES_API_KEY` in the local environment to a key with Places API (New)
+enabled, then rebuild/restart the app so the Expo config is refreshed. The
+existing `GOOGLE_MAPS_DEMO_KEY` can also be used as a fallback for both
+Google Maps and Places, while `GOOGLE_MAPS_API_KEY` configures the native map
+and is a fallback for Places. These are client-side keys; use a dedicated,
+API-restricted key with billing and quota limits, and do not commit real keys.
+
 In-app notifications live in `users/{userId}/notifications`. The API writes one
 when a report is submitted and when a pledge is recorded; users can only change
 a notification's `read` field.

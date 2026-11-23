@@ -10,7 +10,9 @@ import { useRouter } from "expo-router";
 import { JSX, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +21,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProfileNavButton } from "../components/ProfileNavButton";
+import {
+  isGooglePlacesConfigured,
+  searchNearbyWasteFacilities,
+  type NearbyWasteFacility,
+} from "../services/nearbyWasteFacilitiesService";
 import {
   NEWS_CATEGORIES,
   subscribeNewsArticles,
@@ -31,7 +38,12 @@ import {
 } from "../services/reportService";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 
-type Filter = "All" | "Local News" | "Nearby Dumping Sites" | NewsCategory;
+type Filter =
+  | "All"
+  | "Local News"
+  | "Nearby Dumping Sites"
+  | "Nearby Facilities"
+  | NewsCategory;
 
 type NewsFeedItem =
   | {
@@ -60,6 +72,7 @@ const filters: Filter[] = [
   "All",
   "Local News",
   "Nearby Dumping Sites",
+  "Nearby Facilities",
   ...NEWS_CATEGORIES,
 ];
 const nearbyRadiusKm = 25;
@@ -76,6 +89,15 @@ export default function News(): JSX.Element {
   const [articlesError, setArticlesError] = useState<string | null>(null);
   const [sitesError, setSitesError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [nearbyRetryCount, setNearbyRetryCount] = useState(0);
+  const [nearbyFacilities, setNearbyFacilities] = useState<
+    NearbyWasteFacility[]
+  >([]);
+  const [isNearbyFacilitiesLoading, setIsNearbyFacilitiesLoading] =
+    useState(false);
+  const [nearbyFacilitiesError, setNearbyFacilitiesError] = useState<
+    string | null
+  >(null);
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -138,7 +160,7 @@ export default function News(): JSX.Element {
         longitude: position.coords.longitude,
       });
       setLocationMessage(
-        `Showing reported sites within ${nearbyRadiusKm} km.`,
+        `Searching within ${nearbyRadiusKm} km for reported and mapped waste sites.`,
       );
     } catch (error) {
       setUserLocation(null);
@@ -158,12 +180,53 @@ export default function News(): JSX.Element {
     void getUserLocation();
   }, [getUserLocation]);
 
+  useEffect(() => {
+    if (!userLocation) {
+      setNearbyFacilities([]);
+      setNearbyFacilitiesError(null);
+      setIsNearbyFacilitiesLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsNearbyFacilitiesLoading(true);
+    setNearbyFacilitiesError(null);
+    void searchNearbyWasteFacilities(userLocation, controller.signal)
+      .then(({ facilities, errors }) => {
+        if (controller.signal.aborted) return;
+        setNearbyFacilities(facilities);
+        setNearbyFacilitiesError(errors.length ? errors.join(" ") : null);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setNearbyFacilities([]);
+        setNearbyFacilitiesError(
+          error instanceof Error
+            ? error.message
+            : "Nearby waste facilities could not be loaded.",
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsNearbyFacilitiesLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [nearbyRetryCount, userLocation]);
+
   const retryFeeds = () => {
     setIsArticlesLoading(true);
     setAreSitesLoading(true);
     setArticlesError(null);
     setSitesError(null);
     setRetryCount((count) => count + 1);
+    setNearbyRetryCount((count) => count + 1);
+  };
+
+  const retryNearbyFacilities = () => {
+    setNearbyFacilitiesError(null);
+    setIsNearbyFacilitiesLoading(true);
+    setNearbyRetryCount((count) => count + 1);
   };
 
   const retryLocation = () => {
@@ -227,16 +290,33 @@ export default function News(): JSX.Element {
         ? newsItems
         : activeFilter === "Nearby Dumping Sites"
           ? siteItems
+          : activeFilter === "Nearby Facilities"
+            ? []
           : activeFilter === "Sites"
             ? [
                 ...newsItems.filter((item) => item.category === "Sites"),
                 ...siteItems,
               ]
             : newsItems.filter((item) => item.category === activeFilter);
+  const showNearbyFacilities =
+    activeFilter === "All" || activeFilter === "Nearby Facilities";
 
   const showAllNews = () => {
     setActiveFilter("All");
     listRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
+  const openFacilityMap = async (facility: NearbyWasteFacility) => {
+    try {
+      await Linking.openURL(facility.mapsUrl);
+    } catch (error) {
+      Alert.alert(
+        "Could not open map",
+        error instanceof Error
+          ? error.message
+          : "Please try again later.",
+      );
+    }
   };
 
   if (selectedArticle) {
@@ -384,6 +464,7 @@ export default function News(): JSX.Element {
 
           {(activeFilter === "All" ||
             activeFilter === "Nearby Dumping Sites" ||
+            activeFilter === "Nearby Facilities" ||
             activeFilter === "Sites") && (
             <View style={styles.locationNotice}>
               <Text style={styles.locationNoticeText}>
@@ -397,6 +478,91 @@ export default function News(): JSX.Element {
                   style={styles.locationAction}
                 >
                   <Text style={styles.retryText}>Try location</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {showNearbyFacilities && (
+            <View style={styles.facilitiesSection}>
+              <Text style={styles.facilitiesHeading}>
+                Nearby waste facilities
+              </Text>
+              <Text style={styles.facilitiesAttribution}>
+                {isGooglePlacesConfigured()
+                  ? "Google Places · OpenStreetMap data © OpenStreetMap contributors · within 25 km"
+                  : "OpenStreetMap data © OpenStreetMap contributors · within 25 km. Configure a Google Places for business listings."}
+              </Text>
+              {nearbyFacilitiesError && (
+                <Text style={styles.facilitiesError}>
+                  Some facility sources could not be loaded:{" "}
+                  {nearbyFacilitiesError}
+                </Text>
+              )}
+              {isNearbyFacilitiesLoading && (
+                <View style={styles.facilitiesLoading}>
+                  <ActivityIndicator color="#36B86B" />
+                  <Text style={styles.facilitiesStatus}>
+                    Searching near your location...
+                  </Text>
+                </View>
+              )}
+              {!isNearbyFacilitiesLoading &&
+                nearbyFacilities.length === 0 &&
+                !nearbyFacilitiesError && (
+                  <Text style={styles.facilitiesStatus}>
+                    {userLocation
+                      ? "No mapped landfills, recycling centres, waste disposal sites or transfer stations found within 25 km."
+                      : "Allow location access to find nearby waste facilities."}
+                  </Text>
+                )}
+              {nearbyFacilities.map((facility) => (
+                <Pressable
+                  key={facility.id}
+                  style={styles.facilityCard}
+                  onPress={() => void openFacilityMap(facility)}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open ${facility.name} in maps`}
+                >
+                  <View style={styles.facilityCardHeader}>
+                    <Text style={styles.facilityName} numberOfLines={2}>
+                      {facility.name}
+                    </Text>
+                    <Text style={styles.facilityDistance}>
+                      {facility.distanceKm.toFixed(1)} km
+                    </Text>
+                  </View>
+                  <View style={styles.facilityCategoryBadge}>
+                    <Text style={styles.facilityCategory}>
+                      {facility.category}
+                    </Text>
+                  </View>
+                  {facility.address && (
+                    <Text style={styles.facilityDetail}>
+                      {facility.address}
+                    </Text>
+                  )}
+                  {facility.phoneNumber && (
+                    <Text style={styles.facilityDetail}>
+                      {facility.phoneNumber}
+                    </Text>
+                  )}
+                  {facility.rating !== null && (
+                    <Text style={styles.facilityDetail}>
+                      Rating: {facility.rating.toFixed(1)} / 5
+                    </Text>
+                  )}
+                  <Text style={styles.facilitySource}>
+                    Source: {facility.source} · Open in maps
+                  </Text>
+                </Pressable>
+              ))}
+              {nearbyFacilitiesError && (
+                <Pressable
+                  onPress={retryNearbyFacilities}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.retryText}>Retry facility search</Text>
                 </Pressable>
               )}
             </View>
@@ -471,11 +637,13 @@ export default function News(): JSX.Element {
             )}
           </View>
 
-          {isArticlesLoading || areSitesLoading ? (
+          {activeFilter !== "Nearby Facilities" &&
+          (isArticlesLoading || areSitesLoading) ? (
             <View style={styles.emptyContainer}>
               <ActivityIndicator color="#36B86B" />
             </View>
-          ) : articlesError || sitesError ? (
+          ) : activeFilter !== "Nearby Facilities" &&
+            (articlesError || sitesError) ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 {[articlesError, sitesError]
@@ -489,7 +657,7 @@ export default function News(): JSX.Element {
                 <Text style={styles.retryText}>Try again</Text>
               </Pressable>
             </View>
-          ) : (
+          ) : activeFilter !== "Nearby Facilities" ? (
             filteredItems.length === 0 && (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>
@@ -504,7 +672,7 @@ export default function News(): JSX.Element {
                 </Text>
               </View>
             )
-          )}
+          ) : null}
         </ScrollView>
 
         {/* Bottom Navigation */}
@@ -682,6 +850,85 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   locationAction: { paddingVertical: 4, paddingLeft: 8 },
+  facilitiesSection: {
+    gap: 10,
+    marginBottom: 20,
+  },
+  facilitiesHeading: {
+    color: "#17201A",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  facilitiesAttribution: {
+    color: "#68706A",
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  facilitiesError: {
+    color: "#9B3B2E",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  facilitiesLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+  },
+  facilitiesStatus: {
+    color: "#68706A",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  facilityCard: {
+    borderRadius: 16,
+    backgroundColor: "#EAF4ED",
+    borderWidth: 1,
+    borderColor: "#D3E5D8",
+    padding: 14,
+    gap: 7,
+  },
+  facilityCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  facilityName: {
+    flex: 1,
+    color: "#17201A",
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: "700",
+  },
+  facilityDistance: {
+    color: "#267747",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  facilityCategoryBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#3E6475",
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  facilityCategory: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  facilityDetail: {
+    color: "#4D554F",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  facilitySource: {
+    color: "#267747",
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+  },
 
   /* News cards */
   newsList: {
