@@ -152,25 +152,6 @@ and `users/{uid}/contributions/{paymentId}` with status `paid`, and sends an
 in-app notification. If the amount doesn't match, the payment is flagged
 `needsReview` and not counted. Users can read only their own `payments` documents.
 
-Setup:
-
-1. In Ozow Merchant Admin, copy the site code, private key and API key.
-2. Store the keys as Firebase secrets:
-   ```bash
-   firebase functions:secrets:set OZOW_PRIVATE_KEY
-   firebase functions:secrets:set OZOW_API_KEY
-   ```
-3. Copy `functions/.env.example` to `functions/.env` and set `OZOW_SITE_CODE`.
-   `OZOW_IS_TEST` stays `true` (test mode) until you set it to `false`. Add
-   every web origin the app is hosted on to `ALLOWED_RETURN_ORIGINS`. App deep
-   links (`cleanmystreet://`, `exp://`) and `localhost` are always allowed.
-4. Deploy the functions and Firestore rules.
-
-Ozow sends no notification for test payments, so in test mode the status
-comes from the return redirect's status check or from **Check status** on the
-result screen. For the emulator, put the two keys in `functions/.secret.local`.
-Ozow's NotifyUrl must be public, so notifications only arrive at a deployed
-function.
 
 ## Get a fresh project
 
