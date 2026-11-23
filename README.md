@@ -50,8 +50,8 @@ Firestore document. Firestore report documents include `description`,
 `wasteType`, `location` (`latitude` and `longitude`), `imageUrl`, `imagePath`,
 `reporterId`, `status` (`pending_verification`), `createdAt`, and `updatedAt`.
 Community categories are `Cleanup`, `Tips`, or `Question`. Contributions are
-recorded as whole-ZAR pledges only; this endpoint does not process payments or
-store payment details. Requests require authentication and return `400` for
+recorded as whole-ZAR pledges; this endpoint does not process payments or
+store payment details (see Ozow payments below for paying now). Requests require authentication and return `400` for
 invalid input, `401` when unauthenticated, and `404` when the campaign does not
 exist.
 
@@ -125,6 +125,52 @@ In the output, you'll find options to open the app in a
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Ozow payments
+
+Campaigns accept real payments through [Ozow](https://ozow.com) instant EFT,
+next to the existing "pledge to pay later" option. On the campaign screen the
+user picks **Pay now with Ozow**, the API creates a payment and returns a
+checkout link, and the user pays in their bank app. The web app does a
+full-page redirect to Ozow. iOS and Android open it with
+`WebBrowser.openAuthSessionAsync`. Ozow then sends the user back to
+`/paymentresult`, which follows the payment live from Firestore.
+
+| Endpoint | Auth | Purpose |
+| --- | --- | --- |
+| `POST /campaigns/{campaignId}/payments` | ID token | `{ "amount": 100, "returnUrl": "cleanmystreet://paymentresult" }` creates `payments/{paymentId}` (status `pending`) and returns `checkoutUrl`. |
+| `GET /payments/ozow/{paymentId}/checkout?token=…` | one-time token (30 min) | Auto-posts the SHA512-signed request to `https://pay.ozow.com`. |
+| `GET/POST /payments/ozow/return` | none | Ozow's Success/Cancel/Error URL. Checks the status with Ozow's `GetTransactionByReference` API, then redirects to the payment's `returnUrl`. |
+| `POST /payments/ozow/notify` | Ozow hash | Ozow's NotifyUrl. Verifies the SHA512 hash, site code and amount. |
+| `POST /payments/{paymentId}/verify` | ID token | Asks Ozow for a pending payment's status again. |
+
+A redirect alone never marks a payment as paid. A payment is settled only by a
+verified notification or by Ozow's status API. Once complete, a payment is
+recorded once: the API adds it to the campaign's `pledgedAmount`,
+`pledgeCount` and `paidAmount`, writes `campaigns/{id}/contributions/{paymentId}`
+and `users/{uid}/contributions/{paymentId}` with status `paid`, and sends an
+in-app notification. If the amount doesn't match, the payment is flagged
+`needsReview` and not counted. Users can read only their own `payments` documents.
+
+Setup:
+
+1. In Ozow Merchant Admin, copy the site code, private key and API key.
+2. Store the keys as Firebase secrets:
+   ```bash
+   firebase functions:secrets:set OZOW_PRIVATE_KEY
+   firebase functions:secrets:set OZOW_API_KEY
+   ```
+3. Copy `functions/.env.example` to `functions/.env` and set `OZOW_SITE_CODE`.
+   `OZOW_IS_TEST` stays `true` (test mode) until you set it to `false`. Add
+   every web origin the app is hosted on to `ALLOWED_RETURN_ORIGINS`. App deep
+   links (`cleanmystreet://`, `exp://`) and `localhost` are always allowed.
+4. Deploy the functions and Firestore rules.
+
+Ozow sends no notification for test payments, so in test mode the status
+comes from the return redirect's status check or from **Check status** on the
+result screen. For the emulator, put the two keys in `functions/.secret.local`.
+Ozow's NotifyUrl must be public, so notifications only arrive at a deployed
+function.
 
 ## Get a fresh project
 

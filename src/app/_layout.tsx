@@ -76,6 +76,7 @@ export default function RootLayout() {
         <Stack.Screen name="news" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="paymentmethods" />
+        <Stack.Screen name="paymentresult" />
         <Stack.Screen name="previewcampaign" />
         <Stack.Screen name="privacysecurity" />
         <Stack.Screen name="profile" />

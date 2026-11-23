@@ -46,3 +46,7 @@ example
 
 # Firebase emulator logs
 *-debug.log
+
+# Firebase Functions secrets for the emulator
+functions/.secret.local
+functions/.env

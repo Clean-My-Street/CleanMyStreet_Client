@@ -1,6 +1,8 @@
 import {
 	faArrowLeft,
+	faBuildingColumns,
 	faCheck,
+	faHandshake,
 	faHome,
 	faMap,
 	faShareNodes,
@@ -32,7 +34,10 @@ import {
 	campaignStatusLabel,
 	fundedPercent as fundedPercentOf,
 } from "../services/campaignService";
+import { startOzowCheckout } from "../services/paymentService";
 import { shareCampaign } from "../services/shareService";
+
+type ContributionMethod = "ozow" | "pledge";
 
 const MAX_PLEDGE_AMOUNT = 50000;
 
@@ -40,9 +45,57 @@ function formatRand(amount: number): string {
 	return `R${amount.toLocaleString("en-ZA")}`;
 }
 
+// The amount for the button label, or nothing while the input is invalid.
+function amountLabel(value: string): string {
+	const amount = Number(value);
+	return Number.isSafeInteger(amount) && amount > 0 ? formatRand(amount) : "";
+}
+
+function MethodOption({
+	icon,
+	title,
+	detail,
+	badge,
+	selected,
+	onPress,
+}: {
+	icon: typeof faHandshake;
+	title: string;
+	detail: string;
+	badge?: string;
+	selected: boolean;
+	onPress: () => void;
+}): JSX.Element {
+	return (
+	  <Pressable
+	    style={[styles.methodOption, selected && styles.methodOptionSelected]}
+	    onPress={onPress}
+	    accessibilityRole="radio"
+	    accessibilityState={{ checked: selected }}
+	    accessibilityLabel={`${title}. ${detail}`}
+	  >
+	    <View style={styles.methodIcon}>
+	      <FontAwesomeIcon icon={icon} size={14} color="#124A2A" />
+	    </View>
+	    <View style={styles.methodCopy}>
+	      <View style={styles.methodTitleRow}>
+	        <Text style={styles.methodTitle}>{title}</Text>
+	        {badge && <Text style={styles.methodBadge}>{badge}</Text>}
+	      </View>
+	      <Text style={styles.methodDetail}>{detail}</Text>
+	    </View>
+	    <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
+	      {selected && <View style={styles.radioInner} />}
+	    </View>
+	  </Pressable>
+	);
+}
+
 export default function ViewCampaign(): JSX.Element {
 	const [contributionAmount, setContributionAmount] = useState("100");
 	const [isContributing, setIsContributing] = useState(false);
+	const [method, setMethod] = useState<ContributionMethod>("ozow");
+	const [paymentError, setPaymentError] = useState<string | null>(null);
 	const { campaignId, campaign, isLoading, error } = useCampaign();
 	const funding = campaign;
 	const fundedPercent = campaign ? fundedPercentOf(campaign) : 0;
@@ -66,6 +119,27 @@ export default function ViewCampaign(): JSX.Element {
 
 	  Keyboard.dismiss();
 	  setIsContributing(true);
+	  if (method === "ozow") {
+	    setPaymentError(null);
+	    try {
+	      const result = await startOzowCheckout(campaignId, amount);
+	      // On web the page is already on its way to Ozow.
+	      if (result.kind === "returned") {
+	        router.push({
+	          pathname: "/paymentresult",
+	          params: { paymentId: result.paymentId },
+	        });
+	      }
+	    } catch (error) {
+	      const message = getApiErrorMessage(error, "Please try again.");
+	      // Alerts do nothing on web, so the message is also shown inline.
+	      setPaymentError(message);
+	      Alert.alert("Couldn't start the payment", message);
+	    } finally {
+	      setIsContributing(false);
+	    }
+	    return;
+	  }
 	  try {
 	    await createCampaignContribution(campaignId, amount);
 	    Alert.alert("Pledge recorded", `Your R${amount} pledge has been saved.`);
@@ -188,6 +262,29 @@ export default function ViewCampaign(): JSX.Element {
               style={styles.amountInput}
               accessibilityLabel="Contribution amount in ZAR"
             />
+            <Text style={styles.sectionLabel}>How would you like to contribute?</Text>
+            <View style={styles.methodList} accessibilityRole="radiogroup">
+              <MethodOption
+                icon={faBuildingColumns}
+                title="Pay now with Ozow"
+                detail="Instant EFT from your bank app. No card needed."
+                badge="Recommended"
+                selected={method === "ozow"}
+                onPress={() => setMethod("ozow")}
+              />
+              <MethodOption
+                icon={faHandshake}
+                title="Pledge to pay later"
+                detail="Promise an amount now and pay when the campaign is funded."
+                selected={method === "pledge"}
+                onPress={() => setMethod("pledge")}
+              />
+            </View>
+            {paymentError && method === "ozow" && (
+              <Text style={styles.paymentError} accessibilityRole="alert">
+                {paymentError}
+              </Text>
+            )}
             <Pressable
               style={[
                 styles.contributeButton,
@@ -201,8 +298,12 @@ export default function ViewCampaign(): JSX.Element {
                 {!isOpenForPledges
                   ? campaignStatusLabel(campaign.status)
                   : isContributing
-                    ? "Submitting..."
-                    : "Contribute"}
+                    ? method === "ozow"
+                      ? "Opening Ozow..."
+                      : "Submitting..."
+                    : method === "ozow"
+                      ? `Pay ${amountLabel(contributionAmount)} with Ozow`
+                      : `Pledge ${amountLabel(contributionAmount)}`}
               </Text>
             </Pressable>
             <Pressable
@@ -392,6 +493,59 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 9,
   },
+  paymentError: {
+    color: "#C2412D",
+    backgroundColor: "#FFF4F2",
+    fontSize: 10,
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 8,
+  },
+  methodList: { gap: 7, marginBottom: 10 },
+  methodOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#D5D8D5",
+    borderRadius: 8,
+    padding: 10,
+  },
+  methodOptionSelected: { borderColor: "#36B86B", backgroundColor: "#F4FBF6" },
+  methodIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: "#DFF2E6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  methodCopy: { flex: 1 },
+  methodTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  methodTitle: { color: "#17201A", fontSize: 11, fontWeight: "700" },
+  methodBadge: {
+    color: "#176A39",
+    backgroundColor: "#DFF2E6",
+    fontSize: 8,
+    fontWeight: "700",
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: "hidden",
+  },
+  methodDetail: { color: "#68706A", fontSize: 9, lineHeight: 13, marginTop: 2 },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: "#AAB4AC",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioOuterSelected: { borderColor: "#124A2A" },
+  radioInner: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#124A2A" },
   contributeButton: {
     height: 34,
     borderRadius: 6,

@@ -1,5 +1,6 @@
 import {
 	faBookmark,
+	faBuildingColumns,
 	faCheck,
 	faCreditCard,
 	faHeart,
@@ -37,6 +38,11 @@ import {
   type UserActivity,
 } from "../services/activityService";
 import { auth } from "../services/firebase";
+import {
+  paymentStatusLabel,
+  subscribeRecentPayments,
+  type Payment,
+} from "../services/paymentService";
 import { formatRelativeTime } from "../utils/formatRelativeTime";
 import type { SavedItem } from "../services/savedItemsService";
 import {
@@ -72,7 +78,6 @@ export default function ProfileOptionPage({
   const router = useRouter();
   const userId = auth.currentUser?.uid;
   const savedItemsState = useSavedItems();
-  const [defaultPayment, setDefaultPayment] = useState("card");
   const [preferences, setPreferences] = useState<UserPreferences>(
     DEFAULT_USER_PREFERENCES,
   );
@@ -183,10 +188,7 @@ export default function ProfileOptionPage({
             />
           )}
           {option === "payments" && (
-            <PaymentContent
-              selected={defaultPayment}
-              select={setDefaultPayment}
-            />
+            <PaymentContent userId={userId} />
           )}
           {option === "settings" && (
             <SettingsContent
@@ -347,51 +349,149 @@ function SavedContent({
   );
 }
 
-function PaymentContent({
-  selected,
-  select,
-}: {
-  selected: string;
-  select: (id: string) => void;
-}): JSX.Element {
+function PaymentContent({ userId }: { userId?: string }): JSX.Element {
+  const router = useRouter();
+  const [payments, setPayments] = useState<Payment[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    if (!userId) {
+      setError("Sign in to see your payments.");
+      return;
+    }
+    setPayments(null);
+    setError(null);
+    return subscribeRecentPayments(userId, setPayments, (loadError) =>
+      setError(loadError.message),
+    );
+  }, [retryCount, userId]);
+
   return (
     <>
       <IntroCard
         icon={faCreditCard}
         title="Payment methods"
-        text="Choose a preferred method for supporting community campaigns."
+        text="Support community campaigns by paying straight from your bank with Ozow."
       />
-      <Text style={styles.sectionTitle}>Your methods</Text>
+      <Text style={styles.sectionTitle}>Available method</Text>
       <PaymentCard
-        title="Visa ending in 4242"
-        detail="Expires 08/28"
-        selected={selected === "card"}
-        onPress={() => select("card")}
+        icon={faBuildingColumns}
+        title="Ozow instant EFT"
+        detail="Pay from your bank app. No card or sign-up needed."
+        badge="Default"
+        selected
+        onPress={() => undefined}
       />
-      <PaymentCard
-        title="Bank account ending in 1024"
-        detail="South African bank account"
-        selected={selected === "bank"}
-        onPress={() => select("bank")}
-      />
-      <Pressable
-        style={styles.outlineButton}
-        onPress={() =>
-          Alert.alert(
-            "Payment methods",
-            "Secure payment setup will be available when payments are connected to your account.",
-          )
-        }
-        accessibilityRole="button"
-      >
-        <Text style={styles.outlineButtonText}>＋ Add payment method</Text>
-      </Pressable>
+      <Text style={styles.helperTextLeft}>
+        Works with Absa, Capitec, FNB, Nedbank, Standard Bank, Investec,
+        TymeBank, Discovery Bank and more.
+      </Text>
+
+      <Text style={styles.sectionTitle}>How it works</Text>
+      <View style={styles.stepsCard}>
+        {OZOW_STEPS.map((step, index) => (
+          <View key={step.title} style={styles.stepRow}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>{index + 1}</Text>
+            </View>
+            <View style={styles.listCopy}>
+              <Text style={styles.cardTitle}>{step.title}</Text>
+              <Text style={styles.cardDetail}>{step.detail}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <Text style={styles.sectionTitle}>Recent payments</Text>
+      {error ? (
+        <View style={styles.preferenceError}>
+          <Text style={styles.cardDetail}>{error}</Text>
+          {userId && (
+            <Pressable
+              onPress={() => setRetryCount((count) => count + 1)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.outlineButtonText}>Try again</Text>
+            </Pressable>
+          )}
+        </View>
+      ) : payments === null ? (
+        <Text style={styles.helperTextLeft}>Loading payments…</Text>
+      ) : payments.length === 0 ? (
+        <Text style={styles.helperTextLeft}>
+          No payments yet. Payments you make with Ozow will appear here.
+        </Text>
+      ) : (
+        payments.map((payment) => (
+          <Pressable
+            key={payment.id}
+            style={styles.listCard}
+            onPress={() =>
+              router.push({
+                pathname: "/paymentresult",
+                params: { paymentId: payment.id },
+              })
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`R${payment.amount} to ${payment.campaignTitle}, ${paymentStatusLabel(payment.status)}`}
+          >
+            <View style={styles.activityIcon}>
+              <FontAwesomeIcon
+                icon={faBuildingColumns}
+                size={13}
+                color={colors.green}
+              />
+            </View>
+            <View style={styles.listCopy}>
+              <View style={styles.titleDateRow}>
+                <Text style={styles.cardTitle}>
+                  R{payment.amount.toLocaleString("en-ZA")} ·{" "}
+                  {payment.campaignTitle}
+                </Text>
+                <Text style={styles.dateText}>
+                  {payment.createdAt
+                    ? formatRelativeTime(payment.createdAt)
+                    : ""}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.statusText,
+                  (payment.status === "failed" ||
+                    payment.status === "cancelled") &&
+                    styles.statusTextMuted,
+                ]}
+              >
+                {paymentStatusLabel(payment.status)}
+                {payment.isTest ? " · Test" : ""}
+              </Text>
+            </View>
+          </Pressable>
+        ))
+      )}
       <Text style={styles.helperText}>
-        Your payment details are protected and are never shown in full.
+        Payments are processed securely by Ozow. CleanMyStreet never sees or
+        stores your bank login details.
       </Text>
     </>
   );
 }
+
+const OZOW_STEPS = [
+  {
+    title: "Choose an amount",
+    detail: "Open a campaign and pick how much to give.",
+  },
+  {
+    title: "Pay with Ozow",
+    detail: "Select your bank and approve the payment in your banking app.",
+  },
+  {
+    title: "Done",
+    detail: "Your contribution counts towards the campaign straight away.",
+  },
+];
 
 function SettingsContent({
   preferences,
@@ -634,13 +734,17 @@ function SavedCard({
 }
 
 function PaymentCard({
+  icon = faCreditCard,
   title,
   detail,
+  badge,
   selected,
   onPress,
 }: {
+  icon?: typeof faCreditCard;
   title: string;
   detail: string;
+  badge?: string;
   selected: boolean;
   onPress: () => void;
 }): JSX.Element {
@@ -653,10 +757,17 @@ function PaymentCard({
       accessibilityLabel={`${title}${selected ? ", default payment method" : ""}`}
     >
       <View style={styles.paymentIcon}>
-        <FontAwesomeIcon icon={faCreditCard} size={18} color={colors.green} />
+        <FontAwesomeIcon icon={icon} size={18} color={colors.green} />
       </View>
       <View style={styles.listCopy}>
-        <Text style={styles.cardTitle}>{title}</Text>
+        <View style={styles.paymentTitleRow}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          {badge && (
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>{badge}</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.cardDetail}>{detail}</Text>
       </View>
       <View style={[styles.radioOuter, selected && styles.radioOuterSelected]}>
@@ -943,6 +1054,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  paymentTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  helperTextLeft: {
+    color: colors.muted,
+    fontSize: 10,
+    lineHeight: 15,
+    marginBottom: 12,
+  },
+  stepsCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    gap: 12,
+    marginBottom: 12,
+  },
+  stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  stepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.paleGreen,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepNumberText: { color: colors.green, fontSize: 11, fontWeight: "800" },
+  statusTextMuted: { color: colors.muted },
   radioOuter: {
     width: 20,
     height: 20,

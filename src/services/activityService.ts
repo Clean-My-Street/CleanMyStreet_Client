@@ -132,17 +132,18 @@ export function subscribeUserActivity(
         const date = dateOf(data.createdAt);
         if (!date || typeof data.amount !== "number") return [];
         pledgeTotal += data.amount;
+        const isPaid = data.status === "paid";
         return [
           {
             id: `pledge-${pledge.id}`,
             kind: "pledge" as const,
-            title: "Pledged to a campaign",
+            title: isPaid ? "Paid to a campaign" : "Pledged to a campaign",
             detail: `${
               typeof data.campaignTitle === "string"
                 ? data.campaignTitle
                 : "Campaign"
             } · R${data.amount.toLocaleString("en-ZA")}`,
-            status: "Pledged",
+            status: isPaid ? "Paid with Ozow" : "Pledged",
             date,
           },
         ];

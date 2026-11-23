@@ -14,8 +14,22 @@ import {
   Timestamp,
 } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
-import { randomUUID } from "node:crypto";
-import { https } from "firebase-functions/v1";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { runWith } from "firebase-functions/v1";
+import {
+  amountsMatch,
+  buildPaymentRequest,
+  checkoutPage,
+  fetchTransactionByReference,
+  fieldOf,
+  getOzowConfig,
+  isValidNotificationHash,
+  ozowApiKey,
+  ozowPrivateKey,
+  paymentStatusOf,
+  type OzowConfig,
+  type PaymentStatus,
+} from "./ozow";
 
 initializeApp();
 
@@ -37,6 +51,8 @@ const DEFAULT_CAMPAIGN_GOAL = 5_000;
 
 app.use(cors({ origin: true, methods: ["POST", "OPTIONS"] }));
 app.use(express.json({ limit: "1mb" }));
+// Ozow posts its notifications and redirects as HTML form data.
+app.use(express.urlencoded({ extended: false, limit: "100kb" }));
 
 class HttpError extends Error {
   constructor(
@@ -639,6 +655,428 @@ app.post(
   }),
 );
 
+// ---------------------------------------------------------------------------
+// Ozow payments
+//
+// 1. The app creates a payment (POST /campaigns/:id/payments) and opens the
+//    returned checkoutUrl in a browser.
+// 2. The checkout page posts the signed request to Ozow.
+// 3. Ozow sends the customer back through /payments/ozow/return, which checks
+//    the status with Ozow and redirects to the app's returnUrl.
+// 4. Ozow also posts /payments/ozow/notify. Either path settles the payment;
+//    a completed payment is counted towards the campaign exactly once.
+// ---------------------------------------------------------------------------
+
+const MAX_PAYMENT_AMOUNT = MAX_PLEDGE_AMOUNT;
+const CHECKOUT_LINK_LIFETIME = 30 * 60 * 1000;
+
+function requireOzowConfig(): OzowConfig {
+  const config = getOzowConfig();
+  if (!config) {
+    throw new HttpError(503, "Ozow payments are not available right now.");
+  }
+  return config;
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function requireWholeRandAmount(value: unknown, maximum: number): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value <= 0 ||
+    value > maximum
+  ) {
+    throw new HttpError(
+      400,
+      `amount must be a whole number of ZAR from 1 to ${maximum}.`,
+    );
+  }
+  return value;
+}
+
+// Only app deep links, local development and configured web origins may be
+// used, so the return redirect cannot send people to another site.
+function requireReturnUrl(value: unknown): string {
+  const raw = requireString(value, "returnUrl", 500);
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new HttpError(400, "returnUrl must be a valid URL.");
+  }
+  if (["cleanmystreet:", "exp:", "exps:"].includes(url.protocol)) {
+    return url.toString();
+  }
+  if (url.protocol === "https:" || url.protocol === "http:") {
+    const isLocal = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    const allowedOrigins = (process.env.ALLOWED_RETURN_ORIGINS ?? "")
+      .split(",")
+      .map((origin) => origin.trim().replace(/\/+$/, ""))
+      .filter(Boolean);
+    if (isLocal || allowedOrigins.includes(url.origin)) {
+      return url.toString();
+    }
+  }
+  throw new HttpError(400, "returnUrl is not an allowed app address.");
+}
+
+function messagePage(title: string, text: string): string {
+  const escape = (value: string) =>
+    value.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escape(title)}</title></head>
+<body style="font-family:system-ui,sans-serif;background:#F5F8F5;color:#17201A;display:grid;place-items:center;min-height:100vh;margin:0">
+<main style="text-align:center;padding:24px"><h1 style="color:#124A2A;font-size:18px">${escape(
+    title,
+  )}</h1><p style="color:#68706A;font-size:14px">${escape(text)}</p></main></body></html>`;
+}
+
+type SettleInput = {
+  status: PaymentStatus;
+  amount: number;
+  transactionId: string;
+  statusMessage: string;
+  source: "notification" | "status_api";
+};
+
+// Applies an Ozow status to a payment. Safe to call repeatedly: once complete,
+// a payment never changes again, and the contribution is written once.
+async function settlePayment(
+  paymentId: string,
+  input: SettleInput,
+): Promise<PaymentStatus | null> {
+  const paymentReference = db.collection("payments").doc(paymentId);
+
+  return db.runTransaction(async (transaction) => {
+    const payment = await transaction.get(paymentReference);
+    if (!payment.exists) return null;
+
+    const current = payment.get("status") as PaymentStatus;
+    if (current === "complete") return current;
+
+    const now = Timestamp.now();
+    const common = {
+      ozowTransactionId: input.transactionId || payment.get("ozowTransactionId") || null,
+      statusMessage: input.statusMessage || null,
+      lastCheckedBy: input.source,
+      updatedAt: now,
+    };
+
+    if (input.status !== "complete") {
+      // Keep a cancelled or failed payment from going back to pending.
+      const status = input.status === "pending" ? current : input.status;
+      transaction.update(paymentReference, { ...common, status });
+      return status;
+    }
+
+    const amount = payment.get("amount");
+    if (typeof amount !== "number" || !amountsMatch(amount, input.amount)) {
+      console.error("Ozow amount mismatch", {
+        paymentId,
+        expected: amount,
+        received: input.amount,
+      });
+      transaction.update(paymentReference, { ...common, needsReview: true });
+      return current;
+    }
+
+    const userId = payment.get("userId") as string;
+    const campaignId = payment.get("campaignId") as string;
+    const campaignTitle = payment.get("campaignTitle") as string;
+    const campaignReference = db.collection("campaigns").doc(campaignId);
+    const campaign = await transaction.get(campaignReference);
+
+    const contribution = {
+      campaignId,
+      amount,
+      currency: "ZAR",
+      status: "paid",
+      provider: "ozow",
+      paymentId,
+      createdAt: now,
+    };
+    if (campaign.exists) {
+      transaction.set(
+        campaignReference.collection("contributions").doc(paymentId),
+        { ...contribution, userId },
+      );
+      transaction.update(campaignReference, {
+        pledgedAmount: FieldValue.increment(amount),
+        pledgeCount: FieldValue.increment(1),
+        paidAmount: FieldValue.increment(amount),
+        updatedAt: now,
+      });
+    }
+    transaction.set(
+      db.collection("users").doc(userId).collection("contributions").doc(paymentId),
+      { ...contribution, campaignTitle },
+    );
+    transaction.create(
+      notificationReference(userId),
+      notificationData(
+        "Campaigns",
+        `Your R${amount} Ozow payment to ${campaignTitle} was received. Thank you!`,
+        now,
+      ),
+    );
+    transaction.update(paymentReference, {
+      ...common,
+      status: "complete",
+      paidAt: now,
+    });
+    return "complete";
+  });
+}
+
+// Asks Ozow for the payment's status and applies it.
+async function refreshPaymentFromOzow(
+  config: OzowConfig,
+  paymentId: string,
+): Promise<PaymentStatus | null> {
+  const ozowTransaction = await fetchTransactionByReference(config, paymentId);
+  if (!ozowTransaction) return null;
+  return settlePayment(paymentId, {
+    status: ozowTransaction.status,
+    amount: ozowTransaction.amount,
+    transactionId: ozowTransaction.transactionId,
+    statusMessage: ozowTransaction.statusMessage,
+    source: "status_api",
+  });
+}
+
+app.post(
+  "/campaigns/:campaignId/payments",
+  verifyAppCheck,
+  authenticate,
+  rateLimit("payments", 20, HOUR),
+  asyncHandler(async (request, response) => {
+    const user = getAuthenticatedUser(request);
+    const config = requireOzowConfig();
+    const campaignId = requireDocumentId(request.params.campaignId, "campaignId");
+
+    const body: unknown = request.body;
+    if (!isRecord(body)) {
+      throw new HttpError(400, "A JSON request body is required.");
+    }
+    const amount = requireWholeRandAmount(body.amount, MAX_PAYMENT_AMOUNT);
+    const returnUrl = requireReturnUrl(body.returnUrl);
+
+    const campaign = await db.collection("campaigns").doc(campaignId).get();
+    if (!campaign.exists) {
+      throw new HttpError(404, "Campaign not found.");
+    }
+    if (campaign.get("status") !== "funding") {
+      throw new HttpError(409, "This campaign is no longer accepting payments.");
+    }
+    const campaignTitle = campaign.get("title");
+
+    const paymentReference = db.collection("payments").doc();
+    const checkoutToken = randomBytes(24).toString("base64url");
+    const createdAt = Timestamp.now();
+    await paymentReference.create({
+      userId: user.uid,
+      campaignId,
+      campaignTitle:
+        typeof campaignTitle === "string" ? campaignTitle : "Campaign",
+      amount,
+      currency: "ZAR",
+      provider: "ozow",
+      status: "pending",
+      isTest: config.isTest,
+      returnUrl,
+      checkoutTokenHash: sha256(checkoutToken),
+      checkoutExpiresAt: Timestamp.fromMillis(
+        createdAt.toMillis() + CHECKOUT_LINK_LIFETIME,
+      ),
+      ozowTransactionId: null,
+      statusMessage: null,
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    response.status(201).json({
+      id: paymentReference.id,
+      campaignId,
+      amount,
+      currency: "ZAR",
+      status: "pending",
+      isTest: config.isTest,
+      checkoutUrl: `${config.publicApiUrl}/payments/ozow/${encodeURIComponent(
+        paymentReference.id,
+      )}/checkout?token=${checkoutToken}`,
+      createdAt: responseCreatedAt(createdAt),
+    });
+  }),
+);
+
+// Opened in the browser, so it is authorised by the one-time checkout token
+// instead of a Firebase ID token.
+app.get(
+  "/payments/ozow/:paymentId/checkout",
+  asyncHandler(async (request, response) => {
+    response.set("Cache-Control", "no-store");
+    response.type("html");
+    const config = getOzowConfig();
+    if (!config) {
+      response
+        .status(503)
+        .send(messagePage("Payments unavailable", "Please try again later."));
+      return;
+    }
+    const paymentId = requireDocumentId(request.params.paymentId, "paymentId");
+    const token = typeof request.query.token === "string" ? request.query.token : "";
+    const payment = await db.collection("payments").doc(paymentId).get();
+    const expiresAt = payment.get("checkoutExpiresAt");
+
+    if (
+      !payment.exists ||
+      !token ||
+      payment.get("checkoutTokenHash") !== sha256(token)
+    ) {
+      response
+        .status(404)
+        .send(messagePage("Payment not found", "Start the payment again from the app."));
+      return;
+    }
+    if (payment.get("status") !== "pending") {
+      response
+        .status(409)
+        .send(messagePage("Payment already finished", "You can close this page and return to CleanMyStreet."));
+      return;
+    }
+    if (!(expiresAt instanceof Timestamp) || expiresAt.toMillis() < Date.now()) {
+      response
+        .status(410)
+        .send(messagePage("Payment link expired", "Start the payment again from the app."));
+      return;
+    }
+
+    const paymentRequest = buildPaymentRequest(config, {
+      paymentId,
+      amount: payment.get("amount") as number,
+      bankReference: "CleanMyStreet",
+      campaignId: payment.get("campaignId") as string,
+    });
+    response.status(200).send(checkoutPage(paymentRequest));
+  }),
+);
+
+// Ozow sends the customer here after paying, cancelling or failing. The
+// redirect itself proves nothing, so the status is fetched from Ozow.
+const handleOzowReturn = asyncHandler(async (request, response) => {
+  response.set("Cache-Control", "no-store");
+  const fields = {
+    ...(isRecord(request.body) ? request.body : {}),
+    ...(request.query as Record<string, unknown>),
+  };
+  const paymentId =
+    fieldOf(fields, "paymentId") || fieldOf(fields, "TransactionReference");
+  const outcome = ["success", "cancel", "error"].includes(fieldOf(fields, "outcome"))
+    ? fieldOf(fields, "outcome")
+    : "unknown";
+
+  let payment;
+  try {
+    payment = await db.collection("payments").doc(requireDocumentId(paymentId, "paymentId")).get();
+  } catch {
+    payment = null;
+  }
+  if (!payment?.exists) {
+    response
+      .status(404)
+      .type("html")
+      .send(messagePage("Payment not found", "You can close this page and return to CleanMyStreet."));
+    return;
+  }
+
+  const config = getOzowConfig();
+  if (config) {
+    try {
+      await refreshPaymentFromOzow(config, payment.id);
+    } catch (error) {
+      // The app keeps listening and can ask again; notifications also settle it.
+      console.warn("Could not check the Ozow status on return.", error);
+    }
+  }
+
+  const returnUrl = new URL(payment.get("returnUrl") as string);
+  returnUrl.searchParams.set("paymentId", payment.id);
+  returnUrl.searchParams.set("outcome", outcome);
+  response.redirect(303, returnUrl.toString());
+});
+app.get("/payments/ozow/return", handleOzowReturn);
+app.post("/payments/ozow/return", handleOzowReturn);
+
+// Server-to-server notification from Ozow, signed with the private key.
+app.post(
+  "/payments/ozow/notify",
+  asyncHandler(async (request, response) => {
+    const config = requireOzowConfig();
+    const body: unknown = request.body;
+    if (!isRecord(body) || !isValidNotificationHash(body, config.privateKey)) {
+      throw new HttpError(400, "The notification could not be verified.");
+    }
+    if (fieldOf(body, "SiteCode").toLowerCase() !== config.siteCode.toLowerCase()) {
+      throw new HttpError(400, "The notification is for another site.");
+    }
+    const isTestNotification = fieldOf(body, "IsTest").toLowerCase() === "true";
+    if (isTestNotification && !config.isTest) {
+      // A test notification must never complete a live payment.
+      response.status(200).send("OK");
+      return;
+    }
+
+    const paymentId = fieldOf(body, "TransactionReference");
+    if (!paymentId || paymentId.includes("/")) {
+      throw new HttpError(400, "TransactionReference is invalid.");
+    }
+    const status = await settlePayment(paymentId, {
+      status: paymentStatusOf(fieldOf(body, "Status")),
+      amount: Number(fieldOf(body, "Amount")),
+      transactionId: fieldOf(body, "TransactionId").slice(0, 100),
+      statusMessage: fieldOf(body, "StatusMessage").slice(0, 300),
+      source: "notification",
+    });
+    if (status === null) {
+      console.warn("Ozow notification for an unknown payment", { paymentId });
+    }
+    response.status(200).send("OK");
+  }),
+);
+
+// Lets the app ask for a fresh status, for example while a payment is pending.
+app.post(
+  "/payments/:paymentId/verify",
+  verifyAppCheck,
+  authenticate,
+  rateLimit("paymentChecks", 60, HOUR),
+  asyncHandler(async (request, response) => {
+    const user = getAuthenticatedUser(request);
+    const paymentId = requireDocumentId(request.params.paymentId, "paymentId");
+    const reference = db.collection("payments").doc(paymentId);
+    const payment = await reference.get();
+    if (!payment.exists || payment.get("userId") !== user.uid) {
+      throw new HttpError(404, "Payment not found.");
+    }
+
+    let status = payment.get("status") as PaymentStatus;
+    if (status === "pending") {
+      const config = requireOzowConfig();
+      try {
+        status = (await refreshPaymentFromOzow(config, paymentId)) ?? status;
+      } catch (error) {
+        console.warn("Could not check the Ozow status.", error);
+        throw new HttpError(502, "Could not reach Ozow. Please try again shortly.");
+      }
+    }
+    response.status(200).json({ id: paymentId, status });
+  }),
+);
+
 app.use((_request, response) => {
   response.status(404).json({ error: "Endpoint not found." });
 });
@@ -669,4 +1107,6 @@ const handleError: ErrorRequestHandler = (
 
 app.use(handleError);
 
-export const api = https.onRequest(app);
+export const api = runWith({
+  secrets: [ozowPrivateKey, ozowApiKey],
+}).https.onRequest(app);

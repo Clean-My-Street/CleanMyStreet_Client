@@ -60,6 +60,17 @@ export type Contribution = {
   createdAt: string;
 };
 
+export type OzowPaymentSession = {
+  id: string;
+  campaignId: string;
+  amount: number;
+  currency: 'ZAR';
+  status: 'pending';
+  isTest: boolean;
+  checkoutUrl: string;
+  createdAt: string;
+};
+
 export const FEATURED_CAMPAIGN_ID = 'musgrave-road-cleanup';
 
 export function getApiErrorMessage(error: unknown, fallback: string): string {
@@ -117,6 +128,29 @@ export async function createCampaignContribution(
   const response = await api.post<Contribution>(
     `/campaigns/${encodeURIComponent(campaignId)}/contributions`,
     { amount },
+  );
+  return response.data;
+}
+
+// Starts an Ozow payment. Open checkoutUrl in a browser to pay; Ozow then
+// returns the customer to returnUrl with ?paymentId=...&outcome=...
+export async function createOzowPayment(
+  campaignId: string,
+  amount: number,
+  returnUrl: string,
+) {
+  const response = await api.post<OzowPaymentSession>(
+    `/campaigns/${encodeURIComponent(campaignId)}/payments`,
+    { amount, returnUrl },
+  );
+  return response.data;
+}
+
+// Asks the server to check a pending payment's status with Ozow.
+export async function verifyPayment(paymentId: string) {
+  const response = await api.post<{ id: string; status: string }>(
+    `/payments/${encodeURIComponent(paymentId)}/verify`,
+    {},
   );
   return response.data;
 }

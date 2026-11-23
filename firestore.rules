@@ -162,6 +162,14 @@ service cloud.firestore {
       }
     }
 
+    // Ozow payments, written only by the API. Each user can read their own,
+    // so the app can follow a payment's status live.
+    match /payments/{paymentId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
     // rateLimits and anything not listed above are server-only: with no
     // matching rule, client access is denied.
   }
